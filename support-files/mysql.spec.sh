@@ -469,6 +469,7 @@ rm -f $RBR/%{_bindir}/perror
 %files -n mysql-connector-c-shared%{product_suffix}
 %defattr(-, root, root, 0755)
 %doc %{src_dir}/README
+%doc %{src_dir}/Docs/ChangeLog
 %doc %{license_files_server}
 %{_libdir}/libmysql*.so*
 
@@ -484,6 +485,10 @@ rm -f $RBR/%{_bindir}/perror
 # merging BK trees)
 ##############################################################################
 %changelog
+* Thu Aug 01 2013 Bjorn Munch <bjorn.munch@oracle.com>
+
+- Added ChangeLog
+
 * Fri Mar 22 2013 Kent Boortz <kent.boortz@oracle.com>
 
 - Modified to fit MySQL Connector/C
