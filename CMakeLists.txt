@@ -238,6 +238,28 @@ OPTION(WITH_FAST_MUTEXES "Compile with fast mutexes" OFF)
 MARK_AS_ADVANCED(WITH_FAST_MUTEXES)
 
 
+#
+# Options related to client-side protocol tracing
+#
+
+OPTION(WITH_CLIENT_PROTOCOL_TRACING
+  "Support for client-side protocol tracing plugins" ON)
+OPTION(WITH_TEST_TRACE_PLUGIN
+  "Have a built-in test protocol trace plugin in libmysql (requires WITH_CLIENT_PROTOCOL_TRACING option)" OFF)
+
+# Sanity checks for protocol tracing options
+
+IF(WITH_TEST_TRACE_PLUGIN AND NOT WITH_CLIENT_PROTOCOL_TRACING)
+MESSAGE("WARNING: Test trace plugin was selected but client protocol tracing infrastructure is not enabled - ignoring")
+SET(WITH_TEST_TRACE_PLUGIN 0)
+ENDIF()
+
+IF(WITH_TEST_TRACE_PLUGIN AND NOT CMAKE_BUILD_TYPE MATCHES "Debug")
+  MESSAGE(SEND_ERROR 
+          "Test trace plugin was selected but it can be included only in debug binaries.
+          Set WITH_TEST_TRACE_PLUGIN to OFF or WITH_DEBUG to ON.")
+ENDIF()
+
 # Set DBUG_OFF and other optional release-only flags for non-debug project types
 FOREACH(BUILD_TYPE RELEASE RELWITHDEBINFO MINSIZEREL)
   FOREACH(LANG C CXX)
@@ -416,19 +438,66 @@ ADD_SUBDIRECTORY(packaging/WiX)
 SET(CPACK_MONOLITHIC_INSTALL 1 CACHE INTERNAL "")
 
 
-INCLUDE(CPack)
 #
 # RPM installs documentation directly from the source tree
 #
 IF(NOT INSTALL_LAYOUT MATCHES "RPM")
   INSTALL(FILES COPYING LICENSE.mysql 
-  DESTINATION ${INSTALL_DOCREADMEDIR} 
-  COMPONENT Readme
-  OPTIONAL
+    DESTINATION ${INSTALL_DOCREADMEDIR} 
+    COMPONENT Readme
+    OPTIONAL
   )
   INSTALL(FILES README DESTINATION ${INSTALL_DOCREADMEDIR} COMPONENT Readme)
-  INSTALL(FILES ${CMAKE_BINARY_DIR}/Docs/INFO_SRC ${CMAKE_BINARY_DIR}/Docs/INFO_BIN ${CMAKE_SOURCE_DIR}/Docs/ChangeLog DESTINATION ${INSTALL_DOCDIR})
+  INSTALL(
+    FILES
+      ${CMAKE_BINARY_DIR}/Docs/INFO_SRC
+      ${CMAKE_BINARY_DIR}/Docs/INFO_BIN
+      ${CMAKE_SOURCE_DIR}/Docs/ChangeLog
+    DESTINATION ${INSTALL_DOCDIR}
+    COMPONENT Documentation
+  )
 ENDIF()
 
 SET(SSL_DEFINES ${SSL_DEFINES} CACHE INTERNAL "pass SSL_DEFINES to client testing utilities")
 SET(SSL_INCLUDE_DIRS ${SSL_INCLUDE_DIRS} CACHE INTERNAL "pass SSL_INCLUDE_DIRS to client testing utilities")
+
+#
+# A way to install files from other external builds
+#
+OPTION(EXTRA_INSTALL "Colon separated triplets \"<file/dir>;<instdir>;<component>;...\"")
+
+WHILE(EXTRA_INSTALL)
+
+  LIST(GET EXTRA_INSTALL 0 DIR_OR_FILE)
+  IF(NOT DIR_OR_FILE)
+    BREAK()   # EXTRA_INSTALL might have an ending ";" causing confusion
+  ENDIF()
+  FILE(TO_CMAKE_PATH "${DIR_OR_FILE}" DIR_OR_FILE)
+
+  LIST(GET EXTRA_INSTALL 1 REL_INST_DIR)
+  IF(NOT REL_INST_DIR)
+    MESSAGE(FATAL_ERROR "Install location missing for \"${DIR_OR_FILE}\" in EXTRA_INSTALL")
+  ENDIF()
+  FILE(TO_CMAKE_PATH "${REL_INST_DIR}" REL_INST_DIR)
+
+  LIST(GET EXTRA_INSTALL 2 COMP_NAME)
+  IF(NOT COMP_NAME)
+    MESSAGE(FATAL_ERROR "Install component missing for \"${DIR_OR_FILE}\" in EXTRA_INSTALL")
+  ENDIF()
+
+  LIST(REMOVE_AT EXTRA_INSTALL 0 1 2)
+
+  MESSAGE(STATUS "Installing \"${DIR_OR_FILE}\" into \"${REL_INST_DIR}\" component \"${COMP_NAME}\"")
+
+  IF(IS_DIRECTORY "${DIR_OR_FILE}")
+    INSTALL(DIRECTORY "${DIR_OR_FILE}" DESTINATION ${REL_INST_DIR} COMPONENT ${COMP_NAME})
+  ELSEIF(EXISTS "${DIR_OR_FILE}")
+    INSTALL(FILES     "${DIR_OR_FILE}" DESTINATION ${REL_INST_DIR} COMPONENT ${COMP_NAME})
+  ELSE()
+    MESSAGE(FATAL_ERROR "The file or directory \"${DIR_OR_FILE}\" doesn't exist")
+  ENDIF()
+
+ENDWHILE()
+
+
+INCLUDE(CPack)

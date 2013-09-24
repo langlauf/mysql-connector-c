@@ -139,7 +139,8 @@ my_bool thr_alarm(thr_alarm_t *alrm, uint sec, ALARM *alarm_data)
   reschedule= (ulong) next_alarm_expire_time > (ulong) now + sec;
   if (!alarm_data)
   {
-    if (!(alarm_data=(ALARM*) my_malloc(sizeof(ALARM),MYF(MY_WME))))
+    if (!(alarm_data=(ALARM*) my_malloc(key_memory_ALARM,
+                                        sizeof(ALARM),MYF(MY_WME))))
     {
       DBUG_PRINT("info", ("failed my_malloc()"));
       *alrm= 0;					/* No alarm */
@@ -204,10 +205,13 @@ void thr_end_alarm(thr_alarm_t *alarmed)
   if (!found)
   {
     if (*alarmed)
-      fprintf(stderr,"Warning: Didn't find alarm 0x%lx in queue of %d alarms\n",
-	      (long) *alarmed, alarm_queue.elements);
+      /* purecov: begin inspected */
+      my_message_local(WARNING_LEVEL,
+                       "Didn't find alarm 0x%lx in queue of %d alarms",
+                       (long) *alarmed, alarm_queue.elements);
+      /* purecov: end */
     DBUG_PRINT("warning",("Didn't find alarm 0x%lx in queue\n",
-			  (long) *alarmed));
+                          (long) *alarmed));
   }
   mysql_mutex_unlock(&LOCK_alarm);
   DBUG_VOID_RETURN;
@@ -733,7 +737,6 @@ int main(int argc __attribute__((unused)),char **argv __attribute__((unused)))
   mysql_mutex_unlock(&LOCK_thread_count);
   DBUG_PRINT("info",("signal thread created"));
 
-  thr_setconcurrency(3);
   pthread_attr_setscope(&thr_attr,PTHREAD_SCOPE_PROCESS);
   printf("Main thread: %s\n",my_thread_name());
   for (i=0 ; i < 2 ; i++)

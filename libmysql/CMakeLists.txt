@@ -132,6 +132,13 @@ mysql_server_end
 mysql_set_character_set
 mysql_get_character_set_info
 mysql_stmt_next_result
+my_init
+mysql_client_find_plugin
+mysql_client_register_plugin
+mysql_load_plugin
+mysql_load_plugin_v
+mysql_options4
+mysql_plugin_options
 
 CACHE INTERNAL "Functions exported by client API"
 
@@ -157,6 +164,22 @@ IF (WIN32 AND OPENSSL_APPLINK_C)
   )
 ENDIF()
 
+#
+# Include protocol tracing infrastructure and the test
+# trace plugin if enabled by build options.
+#
+IF (WITH_CLIENT_PROTOCOL_TRACING)
+
+  LIST(APPEND CLIENT_SOURCES mysql_trace.c)
+  ADD_DEFINITIONS(-D CLIENT_PROTOCOL_TRACING)
+
+  IF (WITH_TEST_TRACE_PLUGIN)
+    LIST(APPEND CLIENT_SOURCES test_trace_plugin.cc)
+    ADD_DEFINITIONS(-D TEST_TRACE_PLUGIN)
+  ENDIF (WITH_TEST_TRACE_PLUGIN)
+
+ENDIF (WITH_CLIENT_PROTOCOL_TRACING)
+
 ADD_CONVENIENCE_LIBRARY(clientlib ${CLIENT_SOURCES})
 DTRACE_INSTRUMENT(clientlib)
 ADD_DEPENDENCIES(clientlib GenError)
@@ -174,11 +197,22 @@ IF(WIN32)
 ENDIF()
 
 # Merge several convenience libraries into one big mysqlclient
+IF(STATIC_LIB_SUBDIR)
+  SET(OLD_INSTALL_LIBDIR ${INSTALL_LIBDIR})
+  SET(INSTALL_LIBDIR ${INSTALL_LIBDIR}/${STATIC_LIB_SUBDIR})
+ENDIF()
 MERGE_LIBRARIES(mysqlclient STATIC ${LIBS} COMPONENT Development)
+IF(STATIC_LIB_SUBDIR)
+  SET(INSTALL_LIBDIR ${OLD_INSTALL_LIBDIR})
+ENDIF()
 
 # Visual Studio users need debug  static library for debug projects
 IF(MSVC)
- INSTALL_DEBUG_TARGET(mysqlclient DESTINATION ${INSTALL_LIBDIR}/debug)
+  IF(STATIC_LIB_SUBDIR)
+    INSTALL_DEBUG_TARGET(mysqlclient DESTINATION ${INSTALL_LIBDIR}/${STATIC_LIB_SUBDIR}/debug)
+  ELSE()
+    INSTALL_DEBUG_TARGET(mysqlclient DESTINATION ${INSTALL_LIBDIR}/debug)
+  ENDIF()
 ENDIF()
 
 MACRO(GET_TARGET_NAME target out_name)
@@ -278,4 +312,45 @@ IF(NOT DISABLE_SHARED)
         ${INSTALL_LIBDIR} SharedLibraries)
     ENDFOREACH()
   ENDIF()
+ENDIF()
+
+#
+#  Basic application for testing linking against dynamic client library.
+#
+
+#
+# TODO: Consider whether these mysys functions should be exported as C API
+# calls. At the moment they are not defined in <mysql.h>
+#
+LIST(REMOVE_ITEM CLIENT_API_FUNCTIONS
+     handle_options 
+     load_defaults 
+     my_init)
+
+#
+# Generate a comma separated list of C API functions which is used
+# to initialize api_calls[] array in api_test.c
+#
+SET(CLIENT_API_FUNCTION_LIST "")
+FOREACH(api ${CLIENT_API_FUNCTIONS})
+  SET(CLIENT_API_FUNCTION_LIST "${CLIENT_API_FUNCTION_LIST} ${api},")
+ENDFOREACH()
+
+#
+# Generate api_test.c source, substituting @CLIENT_API_FUNCTION_LIST@
+# with the list of API functions.
+#
+CONFIGURE_FILE(api_test.c.in ${CMAKE_CURRENT_BINARY_DIR}/api_test.c)
+
+#
+# Note: Compiling this test application will fail if not all symbols
+# from @CLIENT_API_FUNCTIONS@ are declared by <mysql.h>. It will fail
+# to run if not all of these symbols are exported by the library.
+#
+ADD_EXECUTABLE(libmysql_api_test ${CMAKE_CURRENT_BINARY_DIR}/api_test.c)
+
+IF(DISABLE_SHARED)
+  TARGET_LINK_LIBRARIES(libmysql_api_test ${LIBS})
+ELSE()
+  TARGET_LINK_LIBRARIES(libmysql_api_test libmysql)
 ENDIF()

@@ -1,5 +1,30 @@
 #include "mysql/psi/psi.h"
+#include "psi_base.h"
+#include "psi_memory.h"
+#include "psi_base.h"
+typedef unsigned int PSI_memory_key;
+struct PSI_memory_info_v1
+{
+  PSI_memory_key *m_key;
+  const char *m_name;
+  int m_flags;
+};
+typedef struct PSI_memory_info_v1 PSI_memory_info_v1;
+typedef void (*register_memory_v1_t)
+  (const char *category, struct PSI_memory_info_v1 *info, int count);
+typedef PSI_memory_key (*memory_alloc_v1_t)
+  (PSI_memory_key key, size_t size);
+typedef PSI_memory_key (*memory_realloc_v1_t)
+  (PSI_memory_key key, size_t old_size, size_t new_size);
+typedef void (*memory_free_v1_t)
+  (PSI_memory_key key, size_t size);
+typedef struct PSI_memory_info_v1 PSI_memory_info;
 C_MODE_START
+struct MDL_key;
+typedef struct MDL_key MDL_key;
+typedef int opaque_mdl_type;
+typedef int opaque_mdl_duration;
+typedef int opaque_mdl_status;
 struct TABLE_SHARE;
 struct OPAQUE_LEX_YYSTYPE;
 struct PSI_mutex;
@@ -26,6 +51,12 @@ struct PSI_idle_locker;
 typedef struct PSI_idle_locker PSI_idle_locker;
 struct PSI_digest_locker;
 typedef struct PSI_digest_locker PSI_digest_locker;
+struct PSI_sp_share;
+typedef struct PSI_sp_share PSI_sp_share;
+struct PSI_sp_locker;
+typedef struct PSI_sp_locker PSI_sp_locker;
+struct PSI_metadata_lock;
+typedef struct PSI_metadata_lock PSI_metadata_lock;
 struct PSI_bootstrap
 {
   void* (*get_interface)(int version);
@@ -41,6 +72,8 @@ struct PSI_file_locker;
 typedef struct PSI_file_locker PSI_file_locker;
 struct PSI_socket_locker;
 typedef struct PSI_socket_locker PSI_socket_locker;
+struct PSI_metadata_locker;
+typedef struct PSI_metadata_locker PSI_metadata_locker;
 enum PSI_mutex_operation
 {
   PSI_MUTEX_LOCK= 0,
@@ -255,6 +288,16 @@ struct PSI_table_locker_state_v1
   uint m_index;
 };
 typedef struct PSI_table_locker_state_v1 PSI_table_locker_state_v1;
+struct PSI_metadata_locker_state_v1
+{
+  uint m_flags;
+  struct PSI_metadata_lock *m_metadata_lock;
+  struct PSI_thread *m_thread;
+  ulonglong m_timer_start;
+  ulonglong (*m_timer)(void);
+  void *m_wait;
+};
+typedef struct PSI_metadata_locker_state_v1 PSI_metadata_locker_state_v1;
 struct PSI_digest_storage
 {
   my_bool m_full;
@@ -297,6 +340,7 @@ struct PSI_statement_locker_state_v1
   PSI_digest_locker_state m_digest_state;
   char m_schema_name[(64 * 3)];
   uint m_schema_name_length;
+  PSI_sp_share *m_parent_sp_share;
 };
 typedef struct PSI_statement_locker_state_v1 PSI_statement_locker_state_v1;
 struct PSI_socket_locker_state_v1
@@ -313,6 +357,15 @@ struct PSI_socket_locker_state_v1
   void *m_wait;
 };
 typedef struct PSI_socket_locker_state_v1 PSI_socket_locker_state_v1;
+struct PSI_sp_locker_state_v1
+{
+  uint m_flags;
+  struct PSI_thread *m_thread;
+  ulonglong m_timer_start;
+  ulonglong (*m_timer)(void);
+  PSI_sp_share* m_sp_share;
+};
+typedef struct PSI_sp_locker_state_v1 PSI_sp_locker_state_v1;
 typedef void (*register_mutex_v1_t)
   (const char *category, struct PSI_mutex_info_v1 *info, int count);
 typedef void (*register_rwlock_v1_t)
@@ -442,6 +495,7 @@ typedef struct PSI_table_locker* (*start_table_lock_wait_v1_t)
    ulong flags,
    const char *src_file, uint src_line);
 typedef void (*end_table_lock_wait_v1_t)(struct PSI_table_locker *locker);
+typedef void (*unlock_table_v1_t)(struct PSI_table *table);
 typedef void (*start_file_open_wait_v1_t)
   (struct PSI_file_locker *locker, const char *src_file, uint src_line);
 typedef struct PSI_file* (*end_file_open_wait_v1_t)
@@ -462,7 +516,7 @@ typedef void (*start_stage_v1_t)
 typedef void (*end_stage_v1_t) (void);
 typedef struct PSI_statement_locker* (*get_thread_statement_locker_v1_t)
   (struct PSI_statement_locker_state_v1 *state,
-   PSI_statement_key key, const void *charset);
+   PSI_statement_key key, const void *charset, PSI_sp_share *sp_share);
 typedef struct PSI_statement_locker* (*refine_statement_v1_t)
   (struct PSI_statement_locker *locker,
    PSI_statement_key key);
@@ -526,6 +580,36 @@ typedef struct PSI_digest_locker * (*digest_start_v1_t)
   (struct PSI_statement_locker *locker);
 typedef struct PSI_digest_locker* (*digest_add_token_v1_t)
   (struct PSI_digest_locker *locker, uint token, struct OPAQUE_LEX_YYSTYPE *yylval);
+typedef PSI_sp_locker* (*start_sp_v1_t)
+  (struct PSI_sp_locker_state_v1 *state, struct PSI_sp_share* sp_share);
+typedef void (*end_sp_v1_t)
+  (struct PSI_sp_locker *locker);
+typedef void (*drop_sp_v1_t)
+  (uint object_type,
+   const char *schema_name, uint schema_name_length,
+   const char *object_name, uint object_name_length);
+typedef struct PSI_sp_share* (*get_sp_share_v1_t)
+  (uint object_type,
+   const char *schema_name, uint schema_name_length,
+   const char *object_name, uint object_name_length);
+typedef void (*release_sp_share_v1_t)(struct PSI_sp_share *share);
+typedef PSI_metadata_lock* (*create_metadata_lock_v1_t)
+  (void *identity,
+   const MDL_key *key,
+   opaque_mdl_type mdl_type,
+   opaque_mdl_duration mdl_duration,
+   opaque_mdl_status mdl_status,
+   const char *src_file,
+   uint src_line);
+typedef void (*set_metadata_lock_status_v1_t)(PSI_metadata_lock *lock,
+                                              opaque_mdl_status mdl_status);
+typedef void (*destroy_metadata_lock_v1_t)(PSI_metadata_lock *lock);
+typedef struct PSI_metadata_locker* (*start_metadata_wait_v1_t)
+  (struct PSI_metadata_locker_state_v1 *state,
+   struct PSI_metadata_lock *mdl,
+   const char *src_file, uint src_line);
+typedef void (*end_metadata_wait_v1_t)
+  (struct PSI_metadata_locker *locker, int rc);
 typedef int (*set_thread_connect_attrs_v1_t)(const char *buffer, uint length,
                                              const void *from_cs);
 struct PSI_v1
@@ -628,6 +712,21 @@ struct PSI_v1
   digest_start_v1_t digest_start;
   digest_add_token_v1_t digest_add_token;
   set_thread_connect_attrs_v1_t set_thread_connect_attrs;
+  start_sp_v1_t start_sp;
+  end_sp_v1_t end_sp;
+  drop_sp_v1_t drop_sp;
+  get_sp_share_v1_t get_sp_share;
+  release_sp_share_v1_t release_sp_share;
+  register_memory_v1_t register_memory;
+  memory_alloc_v1_t memory_alloc;
+  memory_realloc_v1_t memory_realloc;
+  memory_free_v1_t memory_free;
+  unlock_table_v1_t unlock_table;
+  create_metadata_lock_v1_t create_metadata_lock;
+  set_metadata_lock_status_v1_t set_metadata_lock_status;
+  destroy_metadata_lock_v1_t destroy_metadata_lock;
+  start_metadata_wait_v1_t start_metadata_wait;
+  end_metadata_wait_v1_t end_metadata_wait;
 };
 typedef struct PSI_v1 PSI;
 typedef struct PSI_mutex_info_v1 PSI_mutex_info;
@@ -646,5 +745,7 @@ typedef struct PSI_file_locker_state_v1 PSI_file_locker_state;
 typedef struct PSI_table_locker_state_v1 PSI_table_locker_state;
 typedef struct PSI_statement_locker_state_v1 PSI_statement_locker_state;
 typedef struct PSI_socket_locker_state_v1 PSI_socket_locker_state;
+typedef struct PSI_sp_locker_state_v1 PSI_sp_locker_state;
+typedef struct PSI_metadata_locker_state_v1 PSI_metadata_locker_state;
 extern MYSQL_PLUGIN_IMPORT PSI *PSI_server;
 C_MODE_END

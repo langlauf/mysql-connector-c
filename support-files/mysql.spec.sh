@@ -442,8 +442,10 @@ mv -v $RBR/%{_libdir}/*.a $RBR/%{_libdir}/mysql/
 
 # Remove binaries that in MySQL Server RPMs belongs to the server
 # sub RPM, and then will conflict/overwrite
-rm -f $RBR/%{_bindir}/my_print_defaults
-rm -f $RBR/%{_bindir}/perror
+# FIXME move to lib/mysql or remove if/when trying to coexist
+# with the server RPM?
+#rm -f $RBR/%{_bindir}/my_print_defaults
+#rm -f $RBR/%{_bindir}/perror
 
 # ----------------------------------------------------------------------
 # Clean up the BuildRoot after build is done
@@ -459,6 +461,8 @@ rm -f $RBR/%{_bindir}/perror
 %files -n mysql-connector-c-devel%{product_suffix} -f optional-files-devel
 %defattr(-, root, root, 0755)
 %attr(755, root, root) %{_bindir}/mysql_config
+%attr(755, root, root) %{_bindir}/my_print_defaults
+%attr(755, root, root) %{_bindir}/perror
 %dir %attr(755, root, root) %{_includedir}/mysql
 %dir %attr(755, root, root) %{_libdir}/mysql
 %{_includedir}/mysql/*
@@ -471,6 +475,8 @@ rm -f $RBR/%{_bindir}/perror
 %doc %{src_dir}/README
 %doc %{src_dir}/Docs/ChangeLog
 %doc %{license_files_server}
+%doc %{src_dir}/Docs/INFO_SRC*
+%doc release/Docs/INFO_BIN*
 %{_libdir}/libmysql*.so*
 
 %post -n mysql-connector-c-shared%{product_suffix}
