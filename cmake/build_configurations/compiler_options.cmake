@@ -13,6 +13,9 @@
 # along with this program; if not, write to the Free Software
 # Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
 
+INCLUDE(CheckCCompilerFlag)
+INCLUDE(CheckCXXCompilerFlag)
+
 IF(SIZEOF_VOIDP EQUAL 4)
   SET(32BIT 1)
 ENDIF()
@@ -43,31 +46,16 @@ IF(UNIX)
     SET(CMAKE_CXX_FLAGS_RELWITHDEBINFO "-O3 ${COMMON_CXX_FLAGS}")
   ENDIF()
 
-  # Linux flags
-  IF(CMAKE_SYSTEM_NAME MATCHES "Linux")
-    IF(CMAKE_C_COMPILER_ID MATCHES "Intel")
-      SET(COMMON_C_FLAGS                 "-static-intel -static-libgcc -g -mp -restrict")
-      SET(COMMON_CXX_FLAGS               "-static-intel -static-libgcc -g -mp -restrict")
-      IF(CMAKE_SYSTEM_PROCESSOR MATCHES "ia64")
-        SET(COMMON_C_FLAGS               "${COMMON_C_FLAGS} -no-ftz -no-prefetch")
-        SET(COMMON_CXX_FLAGS             "${COMMON_CXX_FLAGS} -no-ftz -no-prefetch")
-      ENDIF()
-      SET(CMAKE_C_FLAGS_DEBUG            "${COMMON_C_FLAGS}")
-      SET(CMAKE_CXX_FLAGS_DEBUG          "${COMMON_CXX_FLAGS}")
-      SET(CMAKE_C_FLAGS_RELWITHDEBINFO   "-O3 -unroll2 -ip ${COMMON_C_FLAGS}")
-      SET(CMAKE_CXX_FLAGS_RELWITHDEBINFO "-O3 -unroll2 -ip ${COMMON_CXX_FLAGS}")
-      SET(WITH_SSL no)
-    ENDIF()
+  # Default Clang flags
+  IF(CMAKE_C_COMPILER_ID MATCHES "Clang")
+    SET(COMMON_C_FLAGS               "-g -fno-omit-frame-pointer -fno-strict-aliasing")
+    SET(CMAKE_C_FLAGS_DEBUG          "${COMMON_C_FLAGS}")
+    SET(CMAKE_C_FLAGS_RELWITHDEBINFO "-O3 ${COMMON_C_FLAGS}")
   ENDIF()
-
-  # OSX flags
-  IF(APPLE)
-    SET(COMMON_C_FLAGS                 "-g -fno-strict-aliasing")
-    SET(COMMON_CXX_FLAGS               "-g -fno-strict-aliasing")
-    SET(CMAKE_C_FLAGS_DEBUG            "${COMMON_C_FLAGS}")
+  IF(CMAKE_CXX_COMPILER_ID MATCHES "Clang")
+    SET(COMMON_CXX_FLAGS               "-g -fno-omit-frame-pointer -fno-strict-aliasing")
     SET(CMAKE_CXX_FLAGS_DEBUG          "${COMMON_CXX_FLAGS}")
-    SET(CMAKE_C_FLAGS_RELWITHDEBINFO   "-Os ${COMMON_C_FLAGS}")
-    SET(CMAKE_CXX_FLAGS_RELWITHDEBINFO "-Os ${COMMON_CXX_FLAGS}")
+    SET(CMAKE_CXX_FLAGS_RELWITHDEBINFO "-O3 ${COMMON_CXX_FLAGS}")
   ENDIF()
 
   # Solaris flags
@@ -75,7 +63,22 @@ IF(UNIX)
     IF(CMAKE_SYSTEM_VERSION VERSION_GREATER "5.9")
       # Link mysqld with mtmalloc on Solaris 10 and later
       SET(WITH_MYSQLD_LDFLAGS "-lmtmalloc" CACHE STRING "")
+    ENDIF() 
+    # Possible changes to the defaults set above for gcc/linux.
+    # Vectorized code dumps core in 32bit mode.
+    IF(CMAKE_COMPILER_IS_GNUCC AND 32BIT)
+      CHECK_C_COMPILER_FLAG("-ftree-vectorize" HAVE_C_FTREE_VECTORIZE)
+      IF(HAVE_C_FTREE_VECTORIZE)
+        SET(CMAKE_C_FLAGS_RELWITHDEBINFO "${CMAKE_C_FLAGS_RELWITHDEBINFO} -fno-tree-vectorize")
+      ENDIF()
     ENDIF()
+    IF(CMAKE_COMPILER_IS_GNUCXX AND 32BIT)
+      CHECK_CXX_COMPILER_FLAG("-ftree-vectorize" HAVE_CXX_FTREE_VECTORIZE)
+      IF(HAVE_CXX_FTREE_VECTORIZE)
+        SET(CMAKE_CXX_FLAGS_RELWITHDEBINFO "${CMAKE_CXX_FLAGS_RELWITHDEBINFO} -fno-tree-vectorize")
+      ENDIF()
+    ENDIF()
+
     IF(CMAKE_C_COMPILER_ID MATCHES "SunPro")
       IF(CMAKE_SYSTEM_PROCESSOR MATCHES "i386")
         SET(COMMON_C_FLAGS                   "-g -mt -fsimple=1 -ftrap=%none -nofstore -xbuiltin=%all -xlibmil -xlibmopt -xtarget=generic")

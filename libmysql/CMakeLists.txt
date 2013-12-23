@@ -79,7 +79,6 @@ mysql_next_result
 mysql_num_fields
 mysql_num_rows
 mysql_options
-mysql_options4
 mysql_stmt_param_count
 mysql_stmt_param_metadata
 mysql_ping
@@ -139,6 +138,8 @@ mysql_load_plugin
 mysql_load_plugin_v
 mysql_options4
 mysql_plugin_options
+mysql_reset_connection
+mysql_get_option
 
 CACHE INTERNAL "Functions exported by client API"
 
@@ -207,11 +208,14 @@ IF(STATIC_LIB_SUBDIR)
 ENDIF()
 
 # Visual Studio users need debug  static library for debug projects
+INSTALL_DEBUG_SYMBOLS(clientlib)
 IF(MSVC)
   IF(STATIC_LIB_SUBDIR)
     INSTALL_DEBUG_TARGET(mysqlclient DESTINATION ${INSTALL_LIBDIR}/${STATIC_LIB_SUBDIR}/debug)
+    INSTALL_DEBUG_TARGET(clientlib DESTINATION ${INSTALL_LIBDIR}/${STATIC_LIB_SUBDIR}/debug)
   ELSE()
     INSTALL_DEBUG_TARGET(mysqlclient DESTINATION ${INSTALL_LIBDIR}/debug)
+    INSTALL_DEBUG_TARGET(clientlib DESTINATION ${INSTALL_LIBDIR}/debug)
   ENDIF()
 ENDIF()
 
@@ -276,7 +280,7 @@ IF(NOT DISABLE_SHARED)
       SET(libmysql_link_flags
         "${libmysql_link_flags} ${LINK_FLAG_NO_UNDEFINED}")
       SET(libmysql_link_flags
-        "${libmysql_link_flags} -Wl,--version-script=libmysql.ver")
+        "${libmysql_link_flags} -Wl,--version-script=${CMAKE_CURRENT_BINARY_DIR}/libmysql.ver")
       SET_TARGET_PROPERTIES(libmysql
         PROPERTIES LINK_FLAGS "${libmysql_link_flags}")
     ENDIF() 
@@ -348,6 +352,7 @@ CONFIGURE_FILE(api_test.c.in ${CMAKE_CURRENT_BINARY_DIR}/api_test.c)
 # to run if not all of these symbols are exported by the library.
 #
 ADD_EXECUTABLE(libmysql_api_test ${CMAKE_CURRENT_BINARY_DIR}/api_test.c)
+SET_TARGET_PROPERTIES(libmysql_api_test PROPERTIES LINKER_LANGUAGE CXX)
 
 IF(DISABLE_SHARED)
   TARGET_LINK_LIBRARIES(libmysql_api_test ${LIBS})

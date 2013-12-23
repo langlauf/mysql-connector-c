@@ -1,4 +1,4 @@
-/* Copyright (c) 2013, Oracle and/or its affiliates. All rights reserved.
+/* Copyright (c) 2000, 2013, Oracle and/or its affiliates. All rights reserved.
 
    This program is free software; you can redistribute it and/or modify
    it under the terms of the GNU General Public License as published by
@@ -11,17 +11,23 @@
 
    You should have received a copy of the GNU General Public License
    along with this program; if not, write to the Free Software
-   Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA */
+   Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301  USA */
 
-#include "my_global.h"
+/*
+  my_stpnmov(dst,src,length) moves length characters, or until end, of src to
+  dst and appends a closing NUL to dst if src is shorter than length.
+  The result is a pointer to the first NUL in dst, or is dst+n if dst was
+  truncated.
+*/
 
-#ifdef _WIN32
-#include <float.h>
-#endif
+#include "m_string.h"
 
-#include <math.h>
-
-double my_double_isnan(double x)
+char *my_stpnmov(char *dst, const char *src, size_t n)
 {
-  return isnan(x);
+  while (n-- != 0) {
+    if (!(*dst++ = *src++)) {
+      return (char*) dst-1;
+    }
+  }
+  return dst;
 }

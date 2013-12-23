@@ -62,7 +62,7 @@ SET(CPACK_WIX_INCLUDE "${CMAKE_CURRENT_SOURCE_DIR}/custom_ui.wxs")
 IF(CMAKE_SIZEOF_VOID_P EQUAL 8)
   SET(WixWin64 " Win64='yes'")
 ELSE()
-  SET(WixWin64)
+  SET(WixWin64 " Win64='no'")
 ENDIF()
 
 CONFIGURE_FILE(${CMAKE_CURRENT_SOURCE_DIR}/create_msi.cmake.in

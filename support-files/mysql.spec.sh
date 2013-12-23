@@ -237,7 +237,6 @@ Source:         http://www.mysql.com/Downloads/Connector-C/%{src_dir}.tar.gz
 URL:            http://www.mysql.com/
 Packager:       MySQL Release Engineering <mysql-build@oss.oracle.com>
 Vendor:         %{mysql_vendor}
-Provides:       mysql-connector-c
 BuildRequires:  %{distro_buildreq}
 Prefix:         /usr
 
@@ -276,6 +275,11 @@ documentation and the manual for more information.
 Summary:	MySQL - Development header files and libraries
 Group:		Applications/Databases
 Provides:	mysql-connector-c-devel
+%if 0%{?commercial}
+Obsoletes: mysql-connector-c-devel
+%else
+Obsoletes: mysql-connector-c-devel-commercial
+%endif
 Conflicts:	MySQL-devel
 Conflicts:	mysql-devel mysql-embedded-devel mysql-devel-advanced mysql-embedded-devel-advanced
 Conflicts:      MySQL-devel-classic MySQL-devel-community MySQL-devel-enterprise
@@ -303,6 +307,11 @@ documentation and the manual for more information.
 Summary:	MySQL - Shared libraries
 Group:		Applications/Databases
 Provides:	mysql-connector-c-shared
+%if 0%{?commercial}
+Obsoletes: mysql-connector-c-shared
+%else
+Obsoletes: mysql-connector-c-shared-commercial
+%endif
 Conflicts:	MySQL-shared
 Conflicts:	MySQL-shared-standard MySQL-shared-pro
 Conflicts:	MySQL-shared-pro-cert MySQL-shared-pro-gpl
