@@ -4,7 +4,118 @@ Copyright (c) 2013, 2014, Oracle and/or its affiliates. All rights reserved.
 Full release notes:
 http://dev.mysql.com/doc/relnotes/connector-c/en/
   
-Changes in MySQL Connector/C 6.1.4
+Changes in MySQL Connector/C 6.1.5
+=====================================================================
+
+   Connector/C 6.1.5 upgrades the linked OpenSSL library from version
+   1.0.1g to version 1.0.1h. Versions of OpenSSL prior to 1.0.1g are
+   reported vulnerable to CVE-2014-0224.
+
+   Functionality Added or Changed
+
+     * The server can now report session-state changes to client
+       programs. Reportable session state consists of these values:
+
+          + The default schema (database)
+
+          + Session-specific values for system variables
+
+          + User-defined variables
+
+          + Temporary tables
+
+          + Prepared statements
+       The MySQL client/server protocol now includes tracker
+       information so that session state changes can be detected. One
+       use for the tracker mechanism is that it provides a means for
+       MySQL Connectors, Fabric, and client applications to determine
+       whether any session context is available to ensure session
+       migration from one server to another. (To change connections
+       in a load-balanced environment, it is necessary to detect
+       whether there is session state to take into consideration when
+       deciding whether a switch can be made.)
+       The user interface to control the tracker and retrieve
+       state-change information from it has the following components,
+       which enable implementation of state-change tracking on the
+       client side:
+
+          + Clients can request notification when there is a change
+            to any of the session state-related values just listed,
+            in the form of a flag that is set in the OK packet
+            received from the server after the change occurs. To
+            control notification, enable or disable the
+            session_track_state_change system variable. This variable
+            is disabled by default.
+
+          + Clients can request notification of changed values for
+            certain specific types of session state information:
+               o The default schema name. To control notification,
+                 enable or disable the session_track_schema system
+                 variable. This variable is enabled by default.
+               o The session values of system variables. Notification
+                 occurs for the system variables named by the
+                 session_track_system_variables system variable. By
+                 default, notification is enabled for time_zone,
+                 autocommit, character_set_client,
+                 character_set_results, and character_set_connection.
+                 (The latter three variables are those affected by
+                 SET NAMES.)
+
+          + To enable applications to extract the state-change
+            information returned by the server, the MySQL C API
+            includes a pair of functions:
+               o mysql_session_track_get_first() fetches the first
+                 state-change information received from the server.
+               o mysql_session_track_get_next() fetches any remaining
+                 state-change information received from the server.
+                 Following a successful call to
+                 mysql_session_track_get_first(), call this function
+                 repeatedly as long as it returns success.
+               o Because there are new API functions, the client
+                 library ABI version is now 18.3. Shared library
+                 names now include 18.3 where appropriate.
+
+          + The mysqltest program has enable_session_track_info and
+            disable_session_track_info commands to enable and disable
+            tracking of session state-change information.
+       For more information, see Server System Variables
+       (http://dev.mysql.com/doc/refman/5.6/en/server-system-variable
+       s.html) and mysql_session_track_get_first()
+       (http://dev.mysql.com/doc/refman/5.7/en/mysql-session-track-ge
+       t-first.html). For information about the structure of the OK
+       packet used to convey state-change information, see OK_Packet
+       (http://dev.mysql.com/doc/internals/en/packet-OK_Packet.html).
+
+     * Because there are new API functions
+       (mysql_session_track_get_first(),
+       mysql_session_track_get_next()), the client library ABI
+       version is now 18.3. Shared library names now include 18.3
+       where appropriate.
+
+   Bugs Fixed
+
+     * Calling mysql_get_server_version() with an invalid connection
+       handler argument caused the client to exit. Now it returns 0
+       and reports a CR_COMMANDS_OUT_OF_SYNC error. (Bug #18053212)
+
+     * The C client library could leak memory when client plugins
+       were used. (Bug #17933308)
+
+     * On Windows, calling mysql_thread_init() call without
+       mysql_init() caused the client to exit. windows. Now it
+       returns a nonzero result because it is an error to call
+       mysql_thread_init() before the client library is initialized
+       with mysql_library_init(). (Bug #17514920)
+
+     * There was a difference in certificate handling by yaSSL and
+       OpenSSL (used for Community and Enterprise, respectively).
+       OpenSSL expected a blank certificate to be sent when not all
+       of the --ssl-ca, --ssl-cert, and --ssl-key options were
+       specified, and yaSSL did not do so. To resolve this, yaSSL has
+       been modified to send a blank certificate when an option is
+       missing. (Bug #68788, Bug #16715064)
+
+Changes in MySQL Connector/C 6.1.4 (2014-04-16)
 =====================================================================
 
    Heartbleed Bug
@@ -43,12 +154,11 @@ Changes in MySQL Connector/C 6.1.4
        upgrade directly to Connector/C 6.1.5 when it is released.
        Additional sources of information.
        This issue has been identified as CVE-2014-0160
-       (http://www.cve.mitre.org/cgi-bin/cvename.cgi?name=CVE-2014-01
-       60). Oracle customers can learn more about how this issue may
+       (http://www.cve.mitre.org/cgi-bin/cvename.cgi?name=CVE-2014-0160). 
+       Oracle customers can learn more about how this issue may
        impact Connector/C and other Oracle products they are using
        by reading this My Oracle Support Note (Document ID 1645479.1)
-       (https://support.oracle.com/CSP/main/article?cmd=show&type=NOT
-       &id=1645479.1).
+       (https://support.oracle.com/CSP/main/article?cmd=show&type=NOT&id=1645479.1)
        (Bug #18533200, CVE-2014-0160)
 
 Changes in MySQL Connector/C 6.1.3 (2013-12-27)

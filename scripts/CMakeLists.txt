@@ -1,4 +1,4 @@
-# Copyright (c) 2006, 2013, Oracle and/or its affiliates. All rights reserved.
+# Copyright (c) 2006, 2014, Oracle and/or its affiliates. All rights reserved.
 # 
 # This program is free software; you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
@@ -20,10 +20,16 @@ SET(libexecdir ${prefix}/${INSTALL_SBINDIR})
 SET(scriptdir ${prefix}/${INSTALL_BINDIR})
 SET(datadir ${prefix}/${INSTALL_MYSQLSHAREDIR})
 SET(pkgdatadir ${prefix}/${INSTALL_MYSQLSHAREDIR})
+SET(libsubdir  ${INSTALL_LIBDIR})
 SET(pkgincludedir ${prefix}/${INSTALL_INCLUDEDIR})
 SET(pkglibdir ${prefix}/${INSTALL_LIBDIR})
 SET(pkgplugindir ${prefix}/${INSTALL_PLUGINDIR})
 SET(localstatedir ${MYSQL_DATADIR})
+
+SET(RPATH_OPTION "")
+IF(CMAKE_SYSTEM_NAME STREQUAL "SunOS")
+  SET(RPATH_OPTION "-R$pkglibdir")
+ENDIF()
 
 # some scripts use  @TARGET_LINUX@
 IF(CMAKE_SYSTEM_NAME MATCHES "Linux")
@@ -74,11 +80,16 @@ ENDMACRO()
 
 EXTRACT_LINK_LIBRARIES(mysqlclient CLIENT_LIBS)
 
-# mysql_config evaluates ${LIBDL}, we want to avoid it
-# as our CLIENT_LIBS and LIBS are already correct
-SET(LIBDL)
+SET(LIBMYSQLD_LIBS_USAGE "
+        --libmysqld-libs [$embedded_libs]")
+SET(DISABLE_EMBEDDED_SH "")
+SET(DISABLE_EMBEDDED_PL "")
+IF(WITHOUT_SERVER)
+  SET(LIBMYSQLD_LIBS_USAGE)
+  SET(DISABLE_EMBEDDED_SH  "usage; ")
+  SET(DISABLE_EMBEDDED_PL "usage(); ")
+ENDIF()
 
-SET(NON_THREADED_LIBS ${CLIENT_LIBS})
 SET(mysql_config_COMPONENT COMPONENT Development)
 
 IF(WIN32)
@@ -105,6 +116,9 @@ IF(WIN32)
     INSTALL_SCRIPT(${CMAKE_CURRENT_BINARY_DIR}/${file}.pl COMPONENT Server_Scripts)
   ENDFOREACH()
 ELSE()
+  # Configure this one, for testing, but do not install it.
+  CONFIGURE_FILE(${CMAKE_CURRENT_SOURCE_DIR}/mysql_config.pl.in
+    ${CMAKE_CURRENT_BINARY_DIR}/mysql_config.pl ESCAPE_QUOTES @ONLY)
   # On Unix, most of the files end up in the bin directory
   SET(mysql_config_COMPONENT COMPONENT Development)
   SET(BIN_SCRIPTS
@@ -131,6 +145,15 @@ ELSE()
       COMPONENT ${${file}_COMPONENT}
      )
   ENDFOREACH()
+  IF(COPY_MYSQL_CONFIG)
+    CONFIGURE_FILE(${CMAKE_CURRENT_BINARY_DIR}/mysql_config
+       ${CMAKE_CURRENT_BINARY_DIR}/mysql_server_config COPYONLY)
+    INSTALL_SCRIPT(
+      ${CMAKE_CURRENT_BINARY_DIR}/mysql_server_config
+      DESTINATION ${INSTALL_BINDIR}
+      COMPONENT ${mysql_server_config_COMPONENT}
+    )
+  ENDIF()
 ENDIF()
 
 # Install libgcc as  mylibgcc.a

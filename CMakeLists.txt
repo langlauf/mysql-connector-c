@@ -1,4 +1,4 @@
-# Copyright (c) 2006, 2013, Oracle and/or its affiliates. All rights reserved.
+# Copyright (c) 2006, 2014, Oracle and/or its affiliates. All rights reserved.
 # 
 # This program is free software; you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
@@ -21,20 +21,24 @@ IF(CMAKE_VERSION VERSION_GREATER "2.8.8")
   CMAKE_POLICY(SET CMP0018 OLD)
 ENDIF()
 
+# We use PROPERTIES LINK_INTERFACE_LIBRARIES. See cmake --help-policy CMP0022
+IF(CMAKE_VERSION VERSION_EQUAL "2.8.12" OR
+   CMAKE_VERSION VERSION_GREATER "2.8.12")
+ CMAKE_POLICY(SET CMP0022 OLD)
+ENDIF()
+
 MESSAGE(STATUS "Running cmake version ${CMAKE_VERSION}")
 
 SET(CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH} ${CMAKE_SOURCE_DIR}/cmake)
 
 # First, decide about build type (debug or release)
-# If custom compiler flags are set or cmake is invoked with -DCMAKE_BUILD_TYPE, 
-# respect user wishes and do not (re)define CMAKE_BUILD_TYPE. If WITH_DEBUG{_FULL} 
+# If cmake is invoked with -DCMAKE_BUILD_TYPE, 
+# respect user wishes and do not (re)define CMAKE_BUILD_TYPE. If WITH_DEBUG
 # is given, set CMAKE_BUILD_TYPE = Debug. Otherwise, use Relwithdebinfo.
-
 
 IF(DEFINED CMAKE_BUILD_TYPE)
   SET(HAVE_CMAKE_BUILD_TYPE TRUE)
 ENDIF()
-SET(CUSTOM_C_FLAGS $ENV{CFLAGS})
 
 OPTION(WITH_DEBUG "Use dbug/safemutex" OFF)
 
@@ -62,15 +66,8 @@ SET(BUILDTYPE_DOCSTRING
  "Choose the type of build, options are: None(CMAKE_CXX_FLAGS or
  CMAKE_C_FLAGS used) Debug Release RelWithDebInfo MinSizeRel")
 
-# Possibly temporary fix: Clang on 32 bit causes non-debug server to crash
-IF(CMAKE_OSX_ARCHITECTURES MATCHES "i386")
-  SET(CMAKE_CXX_COMPILER g++)
-ENDIF()
-
 IF(WITH_DEBUG)
   SET(CMAKE_BUILD_TYPE "Debug" CACHE STRING ${BUILDTYPE_DOCSTRING} FORCE)
-  SET(MYSQL_MAINTAINER_MODE ON CACHE BOOL
-      "MySQL maintainer-specific development environment")
   IF(UNIX AND NOT APPLE)
     # Compiling with PIC speeds up embedded build, on PIC sensitive systems 
     # Predefine it to ON, in case user chooses to build embedded. 
@@ -78,9 +75,7 @@ IF(WITH_DEBUG)
   ENDIF()
   SET(OLD_WITH_DEBUG 1 CACHE INTERNAL "" FORCE)
 ELSEIF(NOT HAVE_CMAKE_BUILD_TYPE OR OLD_WITH_DEBUG)
-  IF(CUSTOM_C_FLAGS)
-    SET(CMAKE_BUILD_TYPE "" CACHE STRING ${BUILDTYPE_DOCSTRING} FORCE)
-  ELSE(CMAKE_BUILD_TYPE MATCHES "Debug" OR NOT HAVE_CMAKE_BUILD_TYPE)
+  IF(CMAKE_BUILD_TYPE MATCHES "Debug" OR NOT HAVE_CMAKE_BUILD_TYPE)
     SET(CMAKE_BUILD_TYPE "RelWithDebInfo" CACHE STRING 
        ${BUILDTYPE_DOCSTRING} FORCE)
   ENDIF()
@@ -99,6 +94,14 @@ ELSE()
   MARK_AS_ADVANCED(MYSQL_PROJECT_NAME)
 ENDIF()
 PROJECT(${MYSQL_PROJECT_NAME})
+
+# Maintainer mode is default on only for debug builds using GCC/G++
+IF(CMAKE_BUILD_TYPE MATCHES "Debug" OR WITH_DEBUG)
+  IF(CMAKE_COMPILER_IS_GNUCC AND CMAKE_COMPILER_IS_GNUCXX)
+    SET(MYSQL_MAINTAINER_MODE ON CACHE BOOL
+        "MySQL maintainer-specific development environment")
+  ENDIF()
+ENDIF()
 
 OPTION(WITH_DEFAULT_COMPILER_OPTIONS
   "Use flags from cmake/build_configurations/compiler_options.cmake"
@@ -164,31 +167,6 @@ IF(WITH_DEFAULT_COMPILER_OPTIONS)
 ENDIF()
 IF(WITH_DEFAULT_FEATURE_SET)
   INCLUDE(${CMAKE_SOURCE_DIR}/cmake/build_configurations/feature_set.cmake)
-ENDIF()
-
-#
-# Control aspects of the development environment which are
-# specific to MySQL maintainers and developers.
-#
-INCLUDE(maintainer)
-
-OPTION(MYSQL_MAINTAINER_MODE
-       "MySQL maintainer-specific development environment" OFF)
-
-# Whether the maintainer mode compiler options should be enabled.
-IF(MYSQL_MAINTAINER_MODE)
-  IF(CMAKE_C_COMPILER_ID MATCHES "GNU")
-    SET_MYSQL_MAINTAINER_GNU_C_OPTIONS()
-  ENDIF()
-  IF(CMAKE_CXX_COMPILER_ID MATCHES "GNU")
-    SET_MYSQL_MAINTAINER_GNU_CXX_OPTIONS()
-  ENDIF()
-  IF(CMAKE_C_COMPILER_ID MATCHES "Intel")
-    SET_MYSQL_MAINTAINER_INTEL_C_OPTIONS()
-  ENDIF()
-  IF(CMAKE_CXX_COMPILER_ID MATCHES "Intel")
-    SET_MYSQL_MAINTAINER_INTEL_CXX_OPTIONS()
-  ENDIF()
 ENDIF()
 
 # Add macros
@@ -287,9 +265,40 @@ IF (WITH_ASAN)
     ENDIF()
   ENDIF()
 
-  IF(NOT WITH_ASAN_OK)
+  IF(WITH_ASAN_OK)
+    SET(HAVE_ASAN 1)
+  ELSE()
     MESSAGE(FATAL_ERROR "Do not know how to enable address sanitizer")
   ENDIF()
+ENDIF()
+
+
+OPTION(WITH_MSAN "Enable memory sanitizer" OFF)
+IF(WITH_MSAN)
+  MY_CHECK_C_COMPILER_FLAG("-fsanitize=memory" HAVE_C_FMSANITIZE)
+  MY_CHECK_CXX_COMPILER_FLAG("-fsanitize=memory" HAVE_CXX_FMSANITIZE)
+
+  IF(HAVE_C_FMSANITIZE AND HAVE_CXX_FMSANITIZE)
+    # We switch on basic optimization also for debug builds.
+    # With optimization we may get some warnings, so we switch off -Werror
+    SET(MSAN_FLAGS
+        "-fsanitize=memory -fsanitize-memory-track-origins -O1 -fPIC")
+    SET(CMAKE_C_FLAGS_DEBUG
+      "${CMAKE_C_FLAGS_DEBUG} ${MSAN_FLAGS} -Wno-error")
+    SET(CMAKE_C_FLAGS_RELWITHDEBINFO
+      "${CMAKE_C_FLAGS_RELWITHDEBINFO} ${MSAN_FLAGS}")
+    SET(CMAKE_CXX_FLAGS_DEBUG
+      "${CMAKE_CXX_FLAGS_DEBUG} ${MSAN_FLAGS} -Wno-error")
+    SET(CMAKE_CXX_FLAGS_RELWITHDEBINFO
+      "${CMAKE_CXX_FLAGS_RELWITHDEBINFO} ${MSAN_FLAGS}")
+  ELSE()
+    MESSAGE(FATAL_ERROR "Do not know how to enable memory sanitizer")
+  ENDIF()
+ENDIF()
+
+IF(WITH_ASAN AND WITH_MSAN)
+  MESSAGE(FATAL_ERROR
+          "Cannot use AddressSanitizer and MemorySanitizer together")
 ENDIF()
 
 
@@ -376,7 +385,7 @@ ENDIF()
 
 # Add safemutex for debug configurations, except on Windows
 # (safemutex has never worked on Windows)
-IF(WITH_DEBUG AND NOT WIN32 AND NOT WITH_INNODB_MEMCACHED)
+IF(NOT WIN32 AND NOT WITH_INNODB_MEMCACHED)
   FOREACH(LANG C CXX)
       SET(CMAKE_${LANG}_FLAGS_DEBUG
           "${CMAKE_${LANG}_FLAGS_DEBUG} -DSAFE_MUTEX")
@@ -409,6 +418,16 @@ IF(SYSCONFDIR)
   SET(DEFAULT_SYSCONFDIR "${SYSCONFDIR}")
 ENDIF()
 
+SET(TMPDIR "P_tmpdir"
+  CACHE PATH
+  "PATH to MySQL TMP dir. Defaults to the P_tmpdir macro in <stdio.h>")
+IF(TMPDIR STREQUAL "P_tmpdir")
+  # Do not quote it, to refer to the P_tmpdir macro.
+  SET(DEFAULT_TMPDIR "P_tmpdir")
+ELSE()
+  # Quote it, to make it a const char string.
+  SET(DEFAULT_TMPDIR "\"${TMPDIR}\"")
+ENDIF()
 
 # Run platform tests
 INCLUDE(configure.cmake)
@@ -430,30 +449,20 @@ MYSQL_CHECK_SSL()
 # Why doesn't these flags affect the entire build?
 # Because things may already have been included with ADD_SUBDIRECTORY
 #
-IF(MYSQL_MAINTAINER_MODE)
-  # Set compiler flags required under maintainer mode.
-  MESSAGE(STATUS "C warning options: ${MY_MAINTAINER_C_WARNINGS}")
-  SET(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} ${MY_MAINTAINER_C_WARNINGS}")
-  MESSAGE(STATUS "C++ warning options: ${MY_MAINTAINER_CXX_WARNINGS}")
-  SET(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} ${MY_MAINTAINER_CXX_WARNINGS}")
-ENDIF()
+OPTION(MYSQL_MAINTAINER_MODE
+       "MySQL maintainer-specific development environment" OFF)
 
-IF(CMAKE_COMPILER_IS_GNUCXX)
-  STRING(REGEX MATCH "-Werror"
-    BUILD_WITH_WERROR ${CMAKE_CXX_FLAGS})
-  IF(BUILD_WITH_WERROR)
-    SET("COMPILE_FLAG_WERROR" 1)
-  ENDIF()
-ENDIF()
+INCLUDE(maintainer)
 
 IF(0) #WITH_UNIT_TESTS)
  ENABLE_TESTING()
 ENDIF()
 
 IF(0) #NOT WITHOUT_SERVER)
-SET (MYSQLD_STATIC_PLUGIN_LIBS "" CACHE INTERNAL "")
- # Add storage engines and plugins.
- CONFIGURE_PLUGINS()
+  SET (MYSQLD_STATIC_PLUGIN_LIBS "" CACHE INTERNAL "")
+  SET (MYSQLD_STATIC_EMBEDDED_PLUGIN_LIBS "" CACHE INTERNAL "")
+  # Add storage engines and plugins.
+  CONFIGURE_PLUGINS()
 ENDIF()
 
 ADD_SUBDIRECTORY(include)
@@ -596,3 +605,37 @@ ENDWHILE()
 
 
 INCLUDE(CPack)
+
+# C compiler flags consist of:
+# CPPFLAGS        Taken from environment, see above.
+# ADD_DEFINITIONS In each individual CMakeLists.txt
+# CMAKE_C_FLAGS   From command line.
+#                 We extend these in maintainer.cmake
+# ENV{CFLAGS}     From environment, but environment is ignored if
+#                 CMAKE_C_FLAGS is also given on command line
+# CMAKE_C_FLAGS_${CMAKE_BUILD_TYPE}
+#                 We extend these in compiler_options.cmake
+#
+# Note that CMakeCache.txt contains cmake builtins for these variables,
+# *not* the values that will actually be used:
+
+IF(CMAKE_GENERATOR MATCHES "Makefiles")
+  MESSAGE(STATUS "CMAKE_BUILD_TYPE: ${CMAKE_BUILD_TYPE}")
+ENDIF()
+GET_PROPERTY(cwd_definitions DIRECTORY PROPERTY COMPILE_DEFINITIONS)
+MESSAGE(STATUS "COMPILE_DEFINITIONS: ${cwd_definitions}")
+MESSAGE(STATUS "CMAKE_C_FLAGS: ${CMAKE_C_FLAGS}")
+MESSAGE(STATUS "CMAKE_CXX_FLAGS: ${CMAKE_CXX_FLAGS}")
+IF(CMAKE_BUILD_TYPE AND CMAKE_GENERATOR MATCHES "Makefiles")
+  STRING(TOUPPER "${CMAKE_BUILD_TYPE}" CMAKEBT)
+  MESSAGE(STATUS "CMAKE_C_FLAGS_${CMAKEBT}: ${CMAKE_C_FLAGS_${CMAKEBT}}")
+  MESSAGE(STATUS "CMAKE_CXX_FLAGS_${CMAKEBT}: ${CMAKE_CXX_FLAGS_${CMAKEBT}}")
+ENDIF()
+IF(NOT CMAKE_GENERATOR MATCHES "Makefiles")
+  MESSAGE(STATUS "CMAKE_C_FLAGS_DEBUG: ${CMAKE_C_FLAGS_DEBUG}")
+  MESSAGE(STATUS "CMAKE_CXX_FLAGS_DEBUG: ${CMAKE_CXX_FLAGS_DEBUG}")
+  MESSAGE(STATUS
+    "CMAKE_C_FLAGS_RELWITHDEBINFO: ${CMAKE_C_FLAGS_RELWITHDEBINFO}")
+  MESSAGE(STATUS
+    "CMAKE_CXX_FLAGS_RELWITHDEBINFO: ${CMAKE_CXX_FLAGS_RELWITHDEBINFO}")
+ENDIF()

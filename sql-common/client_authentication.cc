@@ -1,4 +1,4 @@
-/* Copyright (c) 2013, Oracle and/or its affiliates. All rights reserved.
+/* Copyright (c) 2011, 2013, Oracle and/or its affiliates. All rights reserved.
 
    This program is free software; you can redistribute it and/or modify
    it under the terms of the GNU General Public License as published by
@@ -153,9 +153,16 @@ int sha256_password_auth_client(MYSQL_PLUGIN_VIO *vio, MYSQL *mysql)
     Get the scramble from the server because we need it when sending encrypted
     password.
   */
-  if (vio->read_packet(vio, &pkt) != SCRAMBLE_LENGTH)
+  size_t len = vio->read_packet(vio, &pkt);
+
+  if (!(len == SCRAMBLE_LENGTH + 1 || len == SCRAMBLE_LENGTH))
   {
     DBUG_PRINT("info",("Scramble is not of correct length."));
+    DBUG_RETURN(CR_ERROR);
+  }
+  if (len == SCRAMBLE_LENGTH + 1 && pkt[SCRAMBLE_LENGTH] != '\0')
+  {
+    DBUG_PRINT("info",("Missing protocol token in scramble data."));
     DBUG_RETURN(CR_ERROR);
   }
   /*
