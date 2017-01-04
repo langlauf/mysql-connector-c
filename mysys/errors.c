@@ -1,4 +1,4 @@
-/* Copyright (c) 2000, 2013, Oracle and/or its affiliates. All rights reserved.
+/* Copyright (c) 2000, 2016, Oracle and/or its affiliates. All rights reserved.
 
    This program is free software; you can redistribute it and/or modify
    it under the terms of the GNU General Public License as published by
@@ -15,6 +15,8 @@
 
 #include "mysys_priv.h"
 #include "mysys_err.h"
+#include "my_sys.h"
+#include "my_thread_local.h"
 
 const char *globerrs[GLOBERRS]=
 {
@@ -50,13 +52,10 @@ const char *globerrs[GLOBERRS]=
   "File '%s' (fileno: %d) was not closed",
   "Can't change ownership of the file '%s' (Errcode: %d - %s)",
   "Can't change permissions of the file '%s' (Errcode: %d - %s)",
-  "Can't seek in file '%s' (Errcode: %d - %s)"
+  "Can't seek in file '%s' (Errcode: %d - %s)",
+  "Memory capacity exceeded (capacity %llu bytes)"
 };
 
-void init_glob_errs(void)
-{
-  /* This is now done statically. */
-}
 
 /*
  We cannot call my_error/my_printf_error here in this function.
@@ -73,7 +72,7 @@ void wait_for_free_space(const char *filename, int errors)
     char errbuf[MYSYS_STRERROR_SIZE];
     my_message_local(ERROR_LEVEL, EE(EE_DISK_FULL),
                      filename,my_errno,
-                     my_strerror(errbuf, sizeof(errbuf), my_errno));
+                     my_strerror(errbuf, sizeof(errbuf), my_errno()));
     my_message_local(ERROR_LEVEL,
                      "Retry in %d secs. Message reprinted in %d secs",
                      MY_WAIT_FOR_USER_TO_FIX_PANIC,
@@ -87,7 +86,7 @@ void wait_for_free_space(const char *filename, int errors)
   (void) sleep(MY_WAIT_FOR_USER_TO_FIX_PANIC);
 }
 
-const char **get_global_errmsgs()
+const char *get_global_errmsg(int nr)
 {
-  return globerrs;
+  return globerrs[nr - EE_ERROR_FIRST];
 }

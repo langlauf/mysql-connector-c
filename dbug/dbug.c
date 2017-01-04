@@ -84,6 +84,8 @@
 #include <m_string.h>
 #include <errno.h>
 #include <ctype.h>
+#include "thr_mutex.h"
+#include "my_thread_local.h"
 
 #ifdef HAVE_SYS_TIME_H
 #include <sys/time.h>
@@ -329,7 +331,6 @@ static void DbugVfprintf(FILE *stream, const char* format, va_list args);
 ** Macros to allow dbugging with threads
 */
 
-#include <my_pthread.h>
 static native_mutex_t THR_LOCK_dbug;
 
 /**
@@ -368,7 +369,7 @@ static CODE_STATE *code_state(void)
     init_settings.flags=OPEN_APPEND;
   }
 
-  if (!(cs_ptr= (CODE_STATE**) my_thread_var_dbug()))
+  if (!(cs_ptr= my_thread_var_dbug()))
     return 0;                                   /* Thread not initialised */
   if (!(cs= *cs_ptr))
   {
@@ -2063,7 +2064,7 @@ static void DoPrefix(CODE_STATE *cs, uint _line_)
   cs->lineno++;
   if (cs->stack->flags & PID_ON)
   {
-    (void) fprintf(cs->stack->out_file, "T@%u: ", mysys_thread_var()->id);
+    (void) fprintf(cs->stack->out_file, "T@%u: ", my_thread_var_id());
   }
   if (cs->stack->flags & NUMBER_ON)
     (void) fprintf(cs->stack->out_file, "%5d: ", cs->lineno);

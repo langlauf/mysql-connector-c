@@ -1,4 +1,4 @@
-/* Copyright (c) 2011, 2014, Oracle and/or its affiliates. All rights reserved.
+/* Copyright (c) 2011, 2016, Oracle and/or its affiliates. All rights reserved.
 
   This program is free software; you can redistribute it and/or modify
   it under the terms of the GNU General Public License as published by
@@ -21,13 +21,13 @@
 #define HAVE_PSI_INTERFACE
 
 #include "my_global.h"
-#include "my_pthread.h"
+#include "my_thread.h"
 #include "my_sys.h"
 #include "mysql/psi/psi.h"
 
 C_MODE_START
 
-#define NNN __attribute__((unused))
+#define NNN MY_ATTRIBUTE((unused))
 
 static void register_mutex_noop(const char *category NNN,
                                 PSI_mutex_info *info NNN,
@@ -181,11 +181,11 @@ static void create_file_noop(PSI_file_key key NNN,
 }
 
 static int spawn_thread_noop(PSI_thread_key key NNN,
-                             pthread_t *thread NNN,
-                             const pthread_attr_t *attr NNN,
-                             void *(*start_routine)(void*) NNN, void *arg NNN)
+                             my_thread_handle *thread NNN,
+                             const my_thread_attr_t *attr NNN,
+                             my_start_routine start_routine, void *arg NNN)
 {
-  return pthread_create(thread, attr, start_routine, arg);
+  return my_thread_create(thread, attr, start_routine, arg);
 }
 
 static PSI_thread*
@@ -201,6 +201,11 @@ static void set_thread_id_noop(PSI_thread *thread NNN, ulonglong id NNN)
 }
 
 static void set_thread_THD_noop(PSI_thread *thread NNN, THD *thd NNN)
+{
+  return;
+}
+
+static void set_thread_os_id_noop(PSI_thread *thread NNN)
 {
   return;
 }
@@ -228,6 +233,11 @@ static void set_thread_db_noop(const char* db NNN, int db_len NNN)
 }
 
 static void set_thread_command_noop(int command NNN)
+{
+  return;
+}
+
+static void set_connection_type_noop(opaque_vio_type conn_type NNN)
 {
   return;
 }
@@ -379,7 +389,7 @@ static void end_cond_wait_noop(PSI_cond_locker* locker NNN, int rc NNN)
 }
 
 static struct PSI_table_locker*
-start_table_io_wait_noop(struct PSI_table_locker_state_v1 *state NNN,
+start_table_io_wait_noop(struct PSI_table_locker_state *state NNN,
                          struct PSI_table *table NNN,
                          enum PSI_table_io_operation op NNN,
                          uint index NNN,
@@ -395,7 +405,7 @@ static void end_table_io_wait_noop(PSI_table_locker* locker NNN,
 }
 
 static struct PSI_table_locker*
-start_table_lock_wait_noop(struct PSI_table_locker_state_v1 *state NNN,
+start_table_lock_wait_noop(struct PSI_table_locker_state *state NNN,
                            struct PSI_table *table NNN,
                            enum PSI_table_lock_operation op NNN,
                            ulong flags NNN,
@@ -424,6 +434,12 @@ static PSI_file* end_file_open_wait_noop(PSI_file_locker *locker NNN,
 
 static void end_file_open_wait_and_bind_to_descriptor_noop
   (PSI_file_locker *locker NNN, File file NNN)
+{
+  return;
+}
+
+static void end_temp_file_open_wait_and_bind_to_descriptor_noop
+  (PSI_file_locker *locker NNN, File file NNN, const char *filaneme NNN)
 {
   return;
 }
@@ -747,9 +763,9 @@ digest_end_noop(PSI_digest_locker *locker NNN,
 }
 
 static int
-set_thread_connect_attrs_noop(const char *buffer __attribute__((unused)),
-                             uint length  __attribute__((unused)),
-                             const void *from_cs __attribute__((unused)))
+set_thread_connect_attrs_noop(const char *buffer MY_ATTRIBUTE((unused)),
+                             uint length  MY_ATTRIBUTE((unused)),
+                             const void *from_cs MY_ATTRIBUTE((unused)))
 {
   return 0;
 }
@@ -794,17 +810,25 @@ static void register_memory_noop(const char *category NNN,
   return;
 }
 
-static PSI_memory_key memory_alloc_noop(PSI_memory_key key NNN, size_t size NNN)
+static PSI_memory_key memory_alloc_noop(PSI_memory_key key NNN, size_t size NNN, struct PSI_thread ** owner NNN)
 {
+  *owner= NULL;
   return PSI_NOT_INSTRUMENTED;
 }
 
-static PSI_memory_key memory_realloc_noop(PSI_memory_key key NNN, size_t old_size NNN, size_t new_size NNN)
+static PSI_memory_key memory_realloc_noop(PSI_memory_key key NNN, size_t old_size NNN, size_t new_size NNN, struct PSI_thread ** owner NNN)
 {
+  *owner= NULL;
   return PSI_NOT_INSTRUMENTED;
 }
 
-static void memory_free_noop(PSI_memory_key key NNN, size_t size NNN)
+static PSI_memory_key memory_claim_noop(PSI_memory_key key NNN, size_t size NNN, struct PSI_thread ** owner)
+{
+  *owner= NULL;
+  return PSI_NOT_INSTRUMENTED;
+}
+
+static void memory_free_noop(PSI_memory_key key NNN, size_t size NNN, struct PSI_thread * owner NNN)
 {
   return;
 }
@@ -882,11 +906,13 @@ static PSI PSI_noop=
   new_thread_noop,
   set_thread_id_noop,
   set_thread_THD_noop,
+  set_thread_os_id_noop,
   get_thread_noop,
   set_thread_user_noop,
   set_thread_user_host_noop,
   set_thread_db_noop,
   set_thread_command_noop,
+  set_connection_type_noop,
   set_thread_start_time_noop,
   set_thread_state_noop,
   set_thread_info_noop,
@@ -917,6 +943,7 @@ static PSI PSI_noop=
   start_file_open_wait_noop,
   end_file_open_wait_noop,
   end_file_open_wait_and_bind_to_descriptor_noop,
+  end_temp_file_open_wait_and_bind_to_descriptor_noop,
   start_file_wait_noop,
   end_file_wait_noop,
   start_file_close_wait_noop,
@@ -975,6 +1002,7 @@ static PSI PSI_noop=
   register_memory_noop,
   memory_alloc_noop,
   memory_realloc_noop,
+  memory_claim_noop,
   memory_free_noop,
 
   unlock_table_noop,

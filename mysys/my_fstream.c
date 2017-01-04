@@ -1,4 +1,4 @@
-/* Copyright (c) 2000, 2014, Oracle and/or its affiliates. All rights reserved.
+/* Copyright (c) 2000, 2016, Oracle and/or its affiliates. All rights reserved.
 
    This program is free software; you can redistribute it and/or modify
    it under the terms of the GNU General Public License as published by
@@ -14,9 +14,12 @@
    Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301  USA */
 
 #include "mysys_priv.h"
+#include "my_sys.h"
 #include "mysys_err.h"
 #include <errno.h>
 #include <stdio.h>
+#include "my_thread_local.h"
+
 
 #ifdef HAVE_FSEEKO
 #undef ftell
@@ -68,7 +71,7 @@ size_t my_fread(FILE *stream, uchar *Buffer, size_t Count, myf MyFlags)
                  my_strerror(errbuf, sizeof(errbuf), errno));
       }
     }
-    my_errno=errno ? errno : -1;
+    set_my_errno(errno ? errno : -1);
     if (ferror(stream) || MyFlags & (MY_NABP | MY_FNABP))
       DBUG_RETURN((size_t) -1);			/* Return with error */
   }
@@ -110,7 +113,7 @@ size_t my_fwrite(FILE *stream, const uchar *Buffer, size_t Count, myf MyFlags)
                                    Count, stream)) != Count)
     {
       DBUG_PRINT("error",("Write only %d bytes", (int) writtenbytes));
-      my_errno=errno;
+      set_my_errno(errno);
       if (written != (size_t) -1)
       {
 	seekptr+=written;
@@ -149,7 +152,7 @@ size_t my_fwrite(FILE *stream, const uchar *Buffer, size_t Count, myf MyFlags)
 /* Seek to position in file */
 
 my_off_t my_fseek(FILE *stream, my_off_t pos, int whence,
-		  myf MyFlags __attribute__((unused)))
+		  myf MyFlags MY_ATTRIBUTE((unused)))
 {
   DBUG_ENTER("my_fseek");
   DBUG_PRINT("my",("stream: 0x%lx  pos: %lu  whence: %d  MyFlags: %d",
@@ -161,7 +164,7 @@ my_off_t my_fseek(FILE *stream, my_off_t pos, int whence,
 
 /* Tell current position of file */
 
-my_off_t my_ftell(FILE *stream, myf MyFlags __attribute__((unused)))
+my_off_t my_ftell(FILE *stream, myf MyFlags MY_ATTRIBUTE((unused)))
 {
   off_t pos;
   DBUG_ENTER("my_ftell");

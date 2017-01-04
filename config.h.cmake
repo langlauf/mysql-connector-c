@@ -1,4 +1,4 @@
-/* Copyright (c) 2009, 2014, Oracle and/or its affiliates. All rights reserved.
+/* Copyright (c) 2009, 2016, Oracle and/or its affiliates. All rights reserved.
  
  This program is free software; you can redistribute it and/or modify
  it under the terms of the GNU General Public License as published by
@@ -164,8 +164,6 @@
 
 #cmakedefine HAVE_KQUEUE_TIMERS 1
 #cmakedefine HAVE_POSIX_TIMERS 1
-#cmakedefine HAVE_WINDOWS_TIMERS 1
-#cmakedefine HAVE_MY_TIMER 1
 
 /* Endianess */
 #cmakedefine WORDS_BIGENDIAN 1 
@@ -182,6 +180,10 @@
 #cmakedefine HAVE_UINT 1
 #cmakedefine HAVE_ULONG 1
 #cmakedefine HAVE_U_INT32_T 1
+#cmakedefine HAVE_STRUCT_TIMESPEC
+
+/* Support for tagging symbols with __attribute__((visibility("hidden"))) */
+#cmakedefine HAVE_VISIBILITY_HIDDEN 1
 
 /* Code tests*/
 #cmakedefine STACK_DIRECTION @STACK_DIRECTION@
@@ -196,6 +198,7 @@
 #cmakedefine HAVE_BUILTIN_EXPECT 1
 #cmakedefine HAVE_BUILTIN_STPCPY 1
 #cmakedefine HAVE_GCC_ATOMIC_BUILTINS 1
+#cmakedefine HAVE_GCC_SYNC_BUILTINS 1
 #cmakedefine HAVE_VALGRIND
 
 /* IPV6 */
@@ -238,6 +241,7 @@
 #cmakedefine SHAREDIR "@SHAREDIR@"
 #cmakedefine DEFAULT_BASEDIR "@DEFAULT_BASEDIR@"
 #cmakedefine MYSQL_DATADIR "@MYSQL_DATADIR@"
+#cmakedefine MYSQL_KEYRINGDIR "@MYSQL_KEYRINGDIR@"
 #cmakedefine DEFAULT_CHARSET_HOME "@DEFAULT_CHARSET_HOME@"
 #cmakedefine PLUGINDIR "@PLUGINDIR@"
 #cmakedefine DEFAULT_SYSCONFDIR "@DEFAULT_SYSCONFDIR@"
@@ -250,10 +254,10 @@
 #cmakedefine INSTALL_INCLUDEDIR "@default_prefix@/@INSTALL_INCLUDEDIR@"
 #cmakedefine INSTALL_SCRIPTDIR "@default_prefix@/@INSTALL_SCRIPTDIR@"
 #cmakedefine INSTALL_MYSQLDATADIR "@default_prefix@/@INSTALL_MYSQLDATADIR@"
+#cmakedefine INSTALL_MYSQLKEYRINGDIR "@default_prefix@/@INSTALL_MYSQLKEYRINGDIR@"
 #cmakedefine INSTALL_PLUGINTESTDIR "@INSTALL_PLUGINTESTDIR@"
 #cmakedefine INSTALL_INFODIR "@default_prefix@/@INSTALL_INFODIR@"
 #cmakedefine INSTALL_MYSQLTESTDIR "@default_prefix@/@INSTALL_MYSQLTESTDIR@"
-#cmakedefine INSTALL_SQLBENCHDIR "@default_prefix@/@INSTALL_SQLBENCHDIR@"
 #cmakedefine INSTALL_DOCREADMEDIR "@default_prefix@/@INSTALL_DOCREADMEDIR@"
 #cmakedefine INSTALL_DOCDIR "@default_prefix@/@INSTALL_DOCDIR@"
 #cmakedefine INSTALL_MANDIR "@default_prefix@/@INSTALL_MANDIR@"
@@ -272,6 +276,7 @@
 #cmakedefine HAVE_NCURSES_H 1
 #cmakedefine USE_LIBEDIT_INTERFACE 1
 #cmakedefine HAVE_HIST_ENTRY 1
+#cmakedefine USE_NEW_EDITLINE_INTERFACE 1
 
 /*
  * Libedit
@@ -339,6 +344,7 @@
  * Performance schema
  */
 #cmakedefine WITH_PERFSCHEMA_STORAGE_ENGINE 1
+#cmakedefine DISABLE_PSI_THREAD 1
 #cmakedefine DISABLE_PSI_MUTEX 1
 #cmakedefine DISABLE_PSI_RWLOCK 1
 #cmakedefine DISABLE_PSI_COND 1
@@ -354,6 +360,15 @@
 #cmakedefine DISABLE_PSI_METADATA 1
 #cmakedefine DISABLE_PSI_MEMORY 1
 #cmakedefine DISABLE_PSI_TRANSACTION 1
+
+/*
+ * syscall
+*/
+#cmakedefine HAVE_SYS_THREAD_SELFID 1
+#cmakedefine HAVE_SYS_GETTID 1
+#cmakedefine HAVE_PTHREAD_GETTHREADID_NP 1
+#cmakedefine HAVE_PTHREAD_SETNAME_NP 1
+#cmakedefine HAVE_INTEGER_PTHREAD_SELF 1
 
 /* Platform-specific C++ compiler behaviors we rely upon */
 
@@ -400,6 +415,7 @@
  * Other
  */
 #cmakedefine EXTRA_DEBUG 1
+#cmakedefine HAVE_CHOWN 1
 
 /*
  * Hardcoded values needed by libevent/NDB/memcached
@@ -407,7 +423,10 @@
 #define HAVE_FCNTL_H 1
 #define HAVE_GETADDRINFO 1
 #define HAVE_INTTYPES_H 1
+/* libevent's select.c is not Windows compatible */
+#ifndef _WIN32
 #define HAVE_SELECT 1
+#endif
 #define HAVE_SIGNAL_H 1
 #define HAVE_STDARG_H 1
 #define HAVE_STDINT_H 1
@@ -418,5 +437,18 @@
 #define HAVE_SYS_STAT_H 1
 #define HAVE_SYS_TYPES_H 1
 #define SIZEOF_CHAR 1
+
+/*
+ * Needed by libevent
+ */
+#cmakedefine HAVE_SOCKLEN_T 1
+
+/* For --secure-file-priv */
+#cmakedefine DEFAULT_SECURE_FILE_PRIV_DIR @DEFAULT_SECURE_FILE_PRIV_DIR@
+#cmakedefine DEFAULT_SECURE_FILE_PRIV_EMBEDDED_DIR @DEFAULT_SECURE_FILE_PRIV_EMBEDDED_DIR@
+#cmakedefine HAVE_LIBNUMA 1
+
+/* For default value of --early_plugin_load */
+#cmakedefine DEFAULT_EARLY_PLUGIN_LOAD @DEFAULT_EARLY_PLUGIN_LOAD@
 
 #endif

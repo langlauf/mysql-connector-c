@@ -1,4 +1,4 @@
-# Copyright (c) 2000, 2014, Oracle and/or its affiliates. All rights reserved.
+# Copyright (c) 2000, 2016, Oracle and/or its affiliates. All rights reserved.
 #
 # This program is free software; you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
@@ -188,7 +188,14 @@
               %define distro_buildreq     gcc-c++ gdbm-devel gperf ncurses-devel openldap2-client procps pwdutils zlib-devel
               %define distro_requires     aaa_base coreutils grep procps pwdutils
             %else
-              %{error:SuSE %{susever} is unsupported}
+              %if "%susever" == "12"
+                %define distro_description  SUSE Linux Enterprise Server 12
+                %define distro_releasetag   sles12
+                %define distro_buildreq     ncurses-devel zlib-devel cmake libaio-devel libnuma-devel
+                %define distro_requires     aaa_base coreutils grep procps pwdutils
+              %else
+                %{error:SuSE %{susever} is unsupported}
+              %endif
             %endif
           %endif
         %else
@@ -388,6 +395,7 @@ mkdir debug
   CFLAGS=`echo " ${CFLAGS} " | \
             sed -e 's/ -O[0-9]* / /' \
                 -e 's/-Wp,-D_FORTIFY_SOURCE=2/ /' \
+                -e 's/ -D_FORTIFY_SOURCE=2/ /' \
                 -e 's/ -unroll2 / /' \
                 -e 's/ -ip / /' \
                 -e 's/^ //' \
@@ -395,6 +403,7 @@ mkdir debug
   CXXFLAGS=`echo " ${CXXFLAGS} " | \
               sed -e 's/ -O[0-9]* / /' \
                   -e 's/-Wp,-D_FORTIFY_SOURCE=2/ /' \
+                  -e 's/ -D_FORTIFY_SOURCE=2/ /' \
                   -e 's/ -unroll2 / /' \
                   -e 's/ -ip / /' \
                   -e 's/^ //' \
@@ -484,7 +493,6 @@ rm -f $RBR/%{_bindir}/perror
 %dir %attr(755, root, root) %{_libdir}/mysql
 %{_includedir}/mysql/*
 %{_libdir}/mysql/libmysqlclient.a
-%{_libdir}/mysql/libmysqlclient_r.a
 
 # ----------------------------------------------------------------------------
 %files -n mysql-connector-c-shared%{product_suffix}
@@ -508,6 +516,11 @@ rm -f $RBR/%{_bindir}/perror
 # merging BK trees)
 ##############################################################################
 %changelog
+* Thu Oct 20 2016 Bjorn Munch <bjorn.munch@oracle.com>
+
+- Removed libmysqlclient_r.a
+- Fixed wrong weekday in some of the changelog entries
+
 * Thu Aug 01 2013 Bjorn Munch <bjorn.munch@oracle.com>
 
 - Added ChangeLog
@@ -616,7 +629,7 @@ rm -f $RBR/%{_bindir}/perror
   not in an RPM upgrade.
   This affects both the "mkdir" and the call of "mysql_install_db".
 
-* Thu Feb 09 2011 Joerg Bruehe <joerg.bruehe@oracle.com>
+* Wed Feb 09 2011 Joerg Bruehe <joerg.bruehe@oracle.com>
 
 - Fix bug#56581: If an installation deviates from the default file locations
   ("datadir" and "pid-file"), the mechanism to detect a running server (on upgrade)
@@ -737,7 +750,7 @@ rm -f $RBR/%{_bindir}/perror
 - Fix some problems with the directives around "tcmalloc" (experimental),
   remove erroneous traces of the InnoDB plugin (that is 5.1 only).
 
-* Fri Oct 06 2009 Magnus Blaudd <mvensson@mysql.com>
+* Tue Oct 06 2009 Magnus Blaudd <mvensson@mysql.com>
 
 - Removed mysql_fix_privilege_tables
 
@@ -934,7 +947,7 @@ rm -f $RBR/%{_bindir}/perror
 
 - Set $LDFLAGS from $MYSQL_BUILD_LDFLAGS
 
-* Wed Mar 07 2006 Kent Boortz <kent@mysql.com>
+* Tue Mar 07 2006 Kent Boortz <kent@mysql.com>
 
 - Changed product name from "Community Edition" to "Community Server"
 
@@ -1122,7 +1135,7 @@ rm -f $RBR/%{_bindir}/perror
 - ISAM and merge storage engines were purged. As well as appropriate
   tools and manpages (isamchk and isamlog)
 
-* Thu Dec 31 2004 Lenz Grimmer <lenz@mysql.com>
+* Fri Dec 31 2004 Lenz Grimmer <lenz@mysql.com>
 
 - enabled the "Archive" storage engine for the max binary
 - enabled the "CSV" storage engine for the max binary
@@ -1182,7 +1195,7 @@ rm -f $RBR/%{_bindir}/perror
 
 - marked /etc/logrotate.d/mysql as a config file (BUG 2156)
 
-* Fri Dec 13 2003 Lenz Grimmer <lenz@mysql.com>
+* Sat Dec 13 2003 Lenz Grimmer <lenz@mysql.com>
 
 - fixed file permissions (BUG 1672)
 
@@ -1324,7 +1337,7 @@ rm -f $RBR/%{_bindir}/perror
 - Added separate libmysql_r directory; now both a threaded
   and non-threaded library is shipped.
 
-* Wed Sep 28 1999 David Axmark <davida@mysql.com>
+* Tue Sep 28 1999 David Axmark <davida@mysql.com>
 
 - Added the support-files/my-example.cnf to the docs directory.
 

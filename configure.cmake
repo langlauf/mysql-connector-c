@@ -1,4 +1,4 @@
-# Copyright (c) 2009, 2014, Oracle and/or its affiliates. All rights reserved.
+# Copyright (c) 2009, 2016, Oracle and/or its affiliates. All rights reserved.
 # 
 # This program is free software; you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
@@ -62,15 +62,35 @@ IF(NOT SYSTEM_TYPE)
   ENDIF()
 ENDIF()
 
+# Probobuf 2.6.1 on Sparc. Both gcc and Solaris Studio need this.
+IF(CMAKE_SYSTEM_NAME MATCHES "SunOS" AND
+    SIZEOF_VOIDP EQUAL 8 AND CMAKE_SYSTEM_PROCESSOR MATCHES "sparc")
+  ADD_DEFINITIONS(-DSOLARIS_64BIT_ENABLED)
+ENDIF()
+
 # The default C++ library for SunPro is really old, and not standards compliant.
 # http://www.oracle.com/technetwork/server-storage/solaris10/cmp-stlport-libcstd-142559.html
-# Use stlport rather than Rogue Wave.
+# Use stlport rather than Rogue Wave,
+#   unless otherwise specified on command line.
 IF(CMAKE_SYSTEM_NAME MATCHES "SunOS")
   IF(CMAKE_CXX_COMPILER_ID MATCHES "SunPro")
-    IF(SUNPRO_CXX_LIBRARY)
-      SET(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -library=${SUNPRO_CXX_LIBRARY}")
+    IF(CMAKE_CXX_FLAGS MATCHES "-std=")
+      ADD_DEFINITIONS(-D__MATHERR_RENAME_EXCEPTION)
+      SET(CMAKE_SHARED_LIBRARY_C_FLAGS
+        "${CMAKE_SHARED_LIBRARY_C_FLAGS} -lc")
+      SET(CMAKE_SHARED_LIBRARY_CXX_FLAGS
+        "${CMAKE_SHARED_LIBRARY_CXX_FLAGS} -lstdc++ -lgcc_s -lCrunG3 -lc")
+      SET(QUOTED_CMAKE_CXX_LINK_FLAGS "-lstdc++ -lgcc_s -lCrunG3 -lc")
     ELSE()
-      SET(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -library=stlport4")
+      IF(SUNPRO_CXX_LIBRARY)
+        SET(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -library=${SUNPRO_CXX_LIBRARY}")
+        IF(SUNPRO_CXX_LIBRARY STREQUAL "stdcxx4")
+          ADD_DEFINITIONS(-D__MATHERR_RENAME_EXCEPTION)
+          SET(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -template=extdef")
+        ENDIF()
+      ELSE()
+        SET(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -library=stlport4")
+      ENDIF()
     ENDIF()
   ENDIF()
 ENDIF()
@@ -185,6 +205,7 @@ IF(CMAKE_SYSTEM_NAME MATCHES "SunOS" AND
   GET_FILENAME_COMPONENT(CXX_REALPATH ${CMAKE_CXX_COMPILER} REALPATH)
 
   # CC -V yields
+  # CC: Studio 12.5 Sun C++ 5.14 SunOS_sparc Dodona 2016/04/04
   # CC: Sun C++ 5.13 SunOS_sparc Beta 2014/03/11
   # CC: Sun C++ 5.11 SunOS_sparc 2010/08/13
 
@@ -199,7 +220,16 @@ IF(CMAKE_SYSTEM_NAME MATCHES "SunOS" AND
   ENDIF()
 
   STRING(REGEX MATCH "CC: Sun C\\+\\+ 5\\.([0-9]+)" VERSION_STRING ${stderr})
+  IF (NOT CMAKE_MATCH_1 OR CMAKE_MATCH_1 STREQUAL "")
+    STRING(REGEX MATCH "CC: Studio 12\\.5 Sun C\\+\\+ 5\\.([0-9]+)"
+      VERSION_STRING ${stderr})
+  ENDIF()
   SET(CC_MINOR_VERSION ${CMAKE_MATCH_1})
+
+  IF(${CC_MINOR_VERSION} EQUAL 14)
+    MESSAGE(FATAL_ERROR
+      "Please run cmake with -DCMAKE_CXX_FLAGS=-std=c++03 for ${stderr}")
+  ENDIF()
 
   IF(${CC_MINOR_VERSION} EQUAL 13)
     SET(STLPORT_SUFFIX "lib/compilers/stlport4")
@@ -314,9 +344,12 @@ IF(UNIX)
     MY_SEARCH_LIBS(clock_gettime rt LIBRT)
   ENDIF()
   MY_SEARCH_LIBS(timer_create rt LIBRT)
+  MY_SEARCH_LIBS(atomic_thread_fence atomic LIBATOMIC)
 
   SET(CMAKE_REQUIRED_LIBRARIES 
-    ${LIBM} ${LIBNSL} ${LIBBIND} ${LIBCRYPT} ${LIBSOCKET} ${LIBDL} ${CMAKE_THREAD_LIBS_INIT} ${LIBRT})
+    ${LIBM} ${LIBNSL} ${LIBBIND} ${LIBCRYPT} ${LIBSOCKET} ${LIBDL}
+    ${CMAKE_THREAD_LIBS_INIT} ${LIBRT} ${LIBATOMIC}
+  )
   # Need explicit pthread for gcc -fsanitize=address
   IF(CMAKE_C_FLAGS MATCHES "-fsanitize=")
     SET(CMAKE_REQUIRED_LIBRARIES ${CMAKE_REQUIRED_LIBRARIES} pthread)
@@ -457,6 +490,7 @@ CHECK_FUNCTION_EXISTS (sleep HAVE_SLEEP)
 CHECK_FUNCTION_EXISTS (stpcpy HAVE_STPCPY)
 CHECK_FUNCTION_EXISTS (stpncpy HAVE_STPNCPY)
 CHECK_FUNCTION_EXISTS (strlcpy HAVE_STRLCPY)
+CHECK_FUNCTION_EXISTS (strndup HAVE_STRNDUP) # Used by libbinlogevents
 CHECK_FUNCTION_EXISTS (strnlen HAVE_STRNLEN)
 CHECK_FUNCTION_EXISTS (strlcat HAVE_STRLCAT)
 CHECK_FUNCTION_EXISTS (strsignal HAVE_STRSIGNAL)
@@ -500,9 +534,12 @@ CHECK_SYMBOL_EXISTS(TIOCGWINSZ "sys/ioctl.h" GWINSZ_IN_SYS_IOCTL)
 CHECK_SYMBOL_EXISTS(FIONREAD "sys/ioctl.h" FIONREAD_IN_SYS_IOCTL)
 CHECK_SYMBOL_EXISTS(FIONREAD "sys/filio.h" FIONREAD_IN_SYS_FILIO)
 CHECK_SYMBOL_EXISTS(SIGEV_THREAD_ID "signal.h;time.h" HAVE_SIGEV_THREAD_ID)
-CHECK_SYMBOL_EXISTS(SIGEV_PORT "signal.h;time.h" HAVE_SIGEV_PORT)
+CHECK_SYMBOL_EXISTS(SIGEV_PORT "signal.h;time.h;sys/siginfo.h" HAVE_SIGEV_PORT)
 
 CHECK_SYMBOL_EXISTS(log2  math.h HAVE_LOG2)
+
+# On Solaris, it is only visible in C99 mode
+CHECK_SYMBOL_EXISTS(isinf "math.h" HAVE_C_ISINF)
 
 # isinf() prototype not found on Solaris
 CHECK_CXX_SOURCE_COMPILES(
@@ -510,7 +547,14 @@ CHECK_CXX_SOURCE_COMPILES(
 int main() { 
   isinf(0.0); 
   return 0;
-}" HAVE_ISINF)
+}" HAVE_CXX_ISINF)
+
+IF (HAVE_C_ISINF AND HAVE_CXX_ISINF)
+  SET(HAVE_ISINF 1 CACHE INTERNAL "isinf visible in C and C++" FORCE)
+ELSE()
+  SET(HAVE_ISINF 0 CACHE INTERNAL "isinf visible in C and C++" FORCE)
+ENDIF()
+
 
 # The results of these four checks are only needed here, not in code.
 CHECK_FUNCTION_EXISTS (timer_create HAVE_TIMER_CREATE)
@@ -525,12 +569,8 @@ ELSEIF(HAVE_TIMER_CREATE AND HAVE_TIMER_SETTIME)
   ENDIF()
 ENDIF()
 
-IF(WIN32)
-  SET(HAVE_WINDOWS_TIMERS 1 CACHE INTERNAL "Have Windows timer-related functions")
-ENDIF()
-
-IF(HAVE_POSIX_TIMERS OR HAVE_KQUEUE_TIMERS OR HAVE_WINDOWS_TIMERS)
-  SET(HAVE_MY_TIMER 1 CACHE INTERNAL "Have mysys timer-related functions")
+IF(NOT HAVE_POSIX_TIMERS AND NOT HAVE_KQUEUE_TIMERS AND NOT WIN32)
+  MESSAGE(FATAL_ERROR "No mysys timer support detected!")
 ENDIF()
 
 #
@@ -548,7 +588,7 @@ set(CMAKE_REQUIRED_DEFINITIONS ${CMAKE_REQUIRED_DEFINITIONS}
         -D_LARGEFILE_SOURCE -D_LARGE_FILES -D_FILE_OFFSET_BITS=64
         -D__STDC_LIMIT_MACROS -D__STDC_CONSTANT_MACROS -D__STDC_FORMAT_MACROS)
 
-SET(CMAKE_EXTRA_INCLUDE_FILES stdint.h stdio.h sys/types.h)
+SET(CMAKE_EXTRA_INCLUDE_FILES stdint.h stdio.h sys/types.h time.h)
 
 CHECK_TYPE_SIZE("void *"    SIZEOF_VOIDP)
 CHECK_TYPE_SIZE("char *"    SIZEOF_CHARP)
@@ -558,6 +598,7 @@ CHECK_TYPE_SIZE("int"       SIZEOF_INT)
 CHECK_TYPE_SIZE("long long" SIZEOF_LONG_LONG)
 CHECK_TYPE_SIZE("off_t"     SIZEOF_OFF_T)
 CHECK_TYPE_SIZE("time_t"    SIZEOF_TIME_T)
+CHECK_TYPE_SIZE("struct timespec" STRUCT_TIMESPEC)
 
 # If finds the size of a type, set SIZEOF_<type> and HAVE_<type>
 FUNCTION(MY_CHECK_TYPE_SIZE type defbase)
@@ -578,6 +619,9 @@ IF(HAVE_IEEEFP_H)
 ENDIF()
 
 SET(CMAKE_EXTRA_INCLUDE_FILES)
+
+# Support for tagging symbols with __attribute__((visibility("hidden")))
+MY_CHECK_CXX_COMPILER_FLAG("-fvisibility=hidden" HAVE_VISIBILITY_HIDDEN)
 
 #
 # Code tests
@@ -711,6 +755,33 @@ CHECK_CXX_SOURCE_COMPILES("
   {
     int foo= -10; int bar= 10;
     long long int foo64= -10; long long int bar64= 10;
+    if (!__atomic_fetch_add(&foo, bar, __ATOMIC_SEQ_CST) || foo)
+      return -1;
+    bar= __atomic_exchange_n(&foo, bar, __ATOMIC_SEQ_CST);
+    if (bar || foo != 10)
+      return -1;
+    bar= __atomic_compare_exchange_n(&bar, &foo, 15, 0,
+                                     __ATOMIC_SEQ_CST, __ATOMIC_SEQ_CST);
+    if (bar)
+      return -1;
+    if (!__atomic_fetch_add(&foo64, bar64, __ATOMIC_SEQ_CST) || foo64)
+      return -1;
+    bar64= __atomic_exchange_n(&foo64, bar64, __ATOMIC_SEQ_CST);
+    if (bar64 || foo64 != 10)
+      return -1;
+    bar64= __atomic_compare_exchange_n(&bar64, &foo64, 15, 0,
+                                       __ATOMIC_SEQ_CST, __ATOMIC_SEQ_CST);
+    if (bar64)
+      return -1;
+    return 0;
+  }"
+  HAVE_GCC_ATOMIC_BUILTINS)
+
+CHECK_CXX_SOURCE_COMPILES("
+  int main()
+  {
+    int foo= -10; int bar= 10;
+    long long int foo64= -10; long long int bar64= 10;
     if (!__sync_fetch_and_add(&foo, bar) || foo)
       return -1;
     bar= __sync_lock_test_and_set(&foo, bar);
@@ -729,7 +800,7 @@ CHECK_CXX_SOURCE_COMPILES("
       return -1;
     return 0;
   }"
-  HAVE_GCC_ATOMIC_BUILTINS)
+  HAVE_GCC_SYNC_BUILTINS)
 
 IF(WITH_VALGRIND)
   SET(VALGRIND_HEADERS "valgrind/memcheck.h;valgrind/valgrind.h")
@@ -789,7 +860,6 @@ CHECK_STRUCT_HAS_MEMBER("struct sockaddr_in" sin_len
 CHECK_STRUCT_HAS_MEMBER("struct sockaddr_in6" sin6_len
   "${CMAKE_EXTRA_INCLUDE_FILES}" HAVE_SOCKADDR_IN6_SIN6_LEN)
 
-
 CHECK_CXX_SOURCE_COMPILES(
   "
   #include <vector>
@@ -816,4 +886,30 @@ CHECK_CXX_SOURCE_COMPILES(
   }
   " HAVE_IMPLICIT_DEPENDENT_NAME_TYPING)
 
-SET(CMAKE_EXTRA_INCLUDE_FILES) 
+SET(CMAKE_EXTRA_INCLUDE_FILES)
+
+CHECK_FUNCTION_EXISTS(chown HAVE_CHOWN)
+CHECK_INCLUDE_FILES (numaif.h HAVE_NUMAIF_H)
+OPTION(WITH_NUMA "Explicitly set NUMA memory allocation policy" ON)
+IF(HAVE_NUMAIF_H AND WITH_NUMA)
+    SET(SAVE_CMAKE_REQUIRED_LIBRARIES ${CMAKE_REQUIRED_LIBRARIES})
+    SET(CMAKE_REQUIRED_LIBRARIES ${CMAKE_REQUIRED_LIBRARIES} numa)
+    CHECK_C_SOURCE_COMPILES(
+    "
+    #include <numa.h>
+    #include <numaif.h>
+    int main()
+    {
+       struct bitmask *all_nodes= numa_all_nodes_ptr;
+       set_mempolicy(MPOL_DEFAULT, 0, 0);
+       return all_nodes != NULL;
+    }"
+    HAVE_LIBNUMA)
+    SET(CMAKE_REQUIRED_LIBRARIES ${SAVE_CMAKE_REQUIRED_LIBRARIES})
+ENDIF()
+
+# needed for libevent
+CHECK_TYPE_SIZE("socklen_t" SIZEOF_SOCKLEN_T)
+IF(SIZEOF_SOCKLEN_T)
+  SET(HAVE_SOCKLEN_T 1)
+ENDIF()

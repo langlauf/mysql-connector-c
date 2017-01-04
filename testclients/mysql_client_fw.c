@@ -1,4 +1,4 @@
-/* Copyright (c) 2002, 2014, Oracle and/or its affiliates. All rights reserved.
+/* Copyright (c) 2002, 2016, Oracle and/or its affiliates. All rights reserved.
 
    This program is free software; you can redistribute it and/or modify
    it under the terms of the GNU General Public License as published by
@@ -85,6 +85,8 @@ struct my_tests_st
 {
 const char *name;
 void       (*function)();
+int        version_min;
+int        version_max;
 };
 
 #define myheader(str)							\
@@ -197,26 +199,26 @@ static void die(const char *file, int line, const char *expr)
 #define mytest_r(x) if ((x)) {myerror(NULL);DIE_UNLESS(FALSE);}
 
 /* Silence unused function warnings for some of the static functions. */
-static int cmp_double(double *a, double *b) __attribute__((unused));
+static int cmp_double(double *a, double *b) MY_ATTRIBUTE((unused));
 static void verify_col_data(const char *table, const char *col,
-                            const char *exp_data) __attribute__((unused));
+                            const char *exp_data) MY_ATTRIBUTE((unused));
 static void do_verify_prepare_field(MYSQL_RES *result, unsigned int no,
                                     const char *name, const char *org_name,
                                     enum enum_field_types type,
                                     const char *table, const char *org_table,
                                     const char *db, unsigned long length,
                                     const char *def, const char *file,
-                                    int line) __attribute__((unused));
+                                    int line) MY_ATTRIBUTE((unused));
 static void verify_st_affected_rows(MYSQL_STMT *stmt,
-                                    ulonglong exp_count) __attribute__((unused));
-static void verify_affected_rows(ulonglong exp_count) __attribute__((unused));
+                                    ulonglong exp_count) MY_ATTRIBUTE((unused));
+static void verify_affected_rows(ulonglong exp_count) MY_ATTRIBUTE((unused));
 static void verify_field_count(MYSQL_RES *result,
-                               uint exp_count) __attribute__((unused));
+                               uint exp_count) MY_ATTRIBUTE((unused));
 #ifndef EMBEDDED_LIBRARY
 static void execute_prepare_query(const char *query,
-                                  ulonglong exp_count) __attribute__((unused));
+                                  ulonglong exp_count) MY_ATTRIBUTE((unused));
 #endif
-static my_bool thread_query(const char *query) __attribute__((unused));
+static my_bool thread_query(const char *query) MY_ATTRIBUTE((unused));
 
 
 /* A workaround for Sun Forte 5.6 on Solaris x86 */
@@ -267,7 +269,7 @@ static void print_st_error(MYSQL_STMT *stmt, const char *msg)
 }
 
 /*
-Enhanced version of mysql_client_init(), which may also set shared memory 
+Enhanced version of mysql_client_init(), which may also set shared memory
 base on Windows.
 */
 static MYSQL *mysql_client_init(MYSQL* con)
@@ -303,7 +305,7 @@ static my_bool check_have_innodb(MYSQL *conn)
  int rc;
  my_bool result= FALSE;
 
- rc= mysql_query(conn, 
+ rc= mysql_query(conn,
  "SELECT (support = 'YES' or support = 'DEFAULT' or support = 'ENABLED') "
  "AS `TRUE` FROM information_schema.engines WHERE engine = 'innodb'");
  myquery(rc);
@@ -340,13 +342,13 @@ mysql_simple_prepare(MYSQL *mysql_arg, const char *query)
 
 /**
 Connect to the server with options given by arguments to this application,
-stored in global variables opt_host, opt_user, opt_password, opt_db, 
+stored in global variables opt_host, opt_user, opt_password, opt_db,
 opt_port and opt_unix_socket.
 
 @param flag[in]           client_flag passed on to mysql_real_connect
 @param protocol[in]       MYSQL_PROTOCOL_* to use for this connection
 @param auto_reconnect[in] set to 1 for auto reconnect
-   
+
 @return pointer to initialized and connected MYSQL object
 */
 static MYSQL* client_connect(ulong flag, uint protocol, my_bool auto_reconnect)
@@ -814,7 +816,7 @@ const char *file, int line)
    if (table)
    fprintf(stdout, "\n    table    :`%s`\t(expected: `%s`)",
    field->table, table);
-   if (org_table)	      
+   if (org_table)
    fprintf(stdout, "\n    org_table:`%s`\t(expected: `%s`)",
    field->org_table, org_table);
    fprintf(stdout, "\n    database :`%s`\t(expected: `%s`)", field->db, db);
@@ -1233,8 +1235,8 @@ static struct my_option client_test_long_options[] =
 {"silent", 's', "Be more silent", 0, 0, 0, GET_NO_ARG, NO_ARG, 0, 0, 0, 0, 0,
  0},
 #if defined (_WIN32) && !defined (EMBEDDED_LIBRARY)
-{"shared-memory-base-name", 'm', "Base name of shared memory.", 
- &shared_memory_base_name, (uchar**)&shared_memory_base_name, 0, 
+{"shared-memory-base-name", 'm', "Base name of shared memory.",
+ &shared_memory_base_name, (uchar**)&shared_memory_base_name, 0,
  GET_STR, REQUIRED_ARG, 0, 0, 0, 0, 0, 0},
 #endif
 {"socket", 'S', "Socket file to use for connection",
@@ -1280,12 +1282,13 @@ and you are welcome to modify and redistribute it under the GPL license\n");
  my_print_variables(client_test_long_options);
 }
 
+
 static struct my_tests_st *get_my_tests();  /* To be defined in main .c file */
 
 static struct my_tests_st *my_testlist= 0;
 
 static my_bool
-get_one_option(int optid, const struct my_option *opt __attribute__((unused)),
+get_one_option(int optid, const struct my_option *opt MY_ATTRIBUTE((unused)),
 char *argument)
 {
  switch (optid) {
@@ -1341,7 +1344,7 @@ char *argument)
  case 'T':
  {
    struct my_tests_st *fptr;
-      
+
    printf("All possible test names:\n\n");
    for (fptr= my_testlist; fptr->name; fptr++)
    printf("%s\n", fptr->name);
@@ -1404,11 +1407,12 @@ main routine
 
 int main(int argc, char **argv)
 {
- int i;
+ int i, rc;
+ int version;
  char **tests_to_run= NULL, **curr_test;
  struct my_tests_st *fptr;
  my_testlist= get_my_tests();
- 
+
  MY_INIT(argv[0]);
 
  /* Copy the original arguments, so it can be reused for restarting. */
@@ -1445,6 +1449,9 @@ int main(int argc, char **argv)
 
  /* connect to server with no flags, default protocol, auto reconnect true */
  mysql= client_connect(0, MYSQL_PROTOCOL_DEFAULT, 1);
+ version = mysql_get_server_version(mysql);
+
+ printf("\nRunning tests against server version: %d\n", version);
 
  total_time= 0;
  for (iter_count= 1; iter_count <= opt_count; iter_count++)
@@ -1454,8 +1461,32 @@ int main(int argc, char **argv)
    start_time= time((time_t *)0);
    if (!tests_to_run)
    {
-     for (fptr= my_testlist; fptr->name; fptr++)
-     (*fptr->function)();	
+     for (fptr = my_testlist; fptr->name; fptr++)
+     {
+       if (fptr->version_min != 0 && version < fptr->version_min)
+       {
+          printf(
+            "\n#### Skipped test %s "
+            "because it requires server version %d at least\n",
+            fptr->name, fptr->version_min
+          );
+          continue;
+       }
+
+       if (fptr->version_max != 0 && version > fptr->version_max)
+       {
+          printf(
+            "\n#### Skipped test %s "
+            "because it requires server version %d at most\n",
+            fptr->name, fptr->version_max
+          );
+          continue;
+       }
+
+       rc = mysql_query(mysql, "use client_test_db");
+       myquery(rc);
+       (*fptr->function)();
+     }
    }
    else
    {
@@ -1465,6 +1496,8 @@ int main(int argc, char **argv)
        {
 	 if (!strcmp(fptr->name, *curr_test))
 	 {
+       int rc = mysql_query(mysql, "use client_test_db");
+       myquery(rc);
 	   (*fptr->function)();
 	   break;
 	 }

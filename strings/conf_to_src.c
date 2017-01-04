@@ -1,4 +1,4 @@
-/* Copyright (c) 2000, 2014, Oracle and/or its affiliates. All rights reserved.
+/* Copyright (c) 2000, 2016, Oracle and/or its affiliates. All rights reserved.
 
    This program is free software; you can redistribute it and/or modify
    it under the terms of the GNU General Public License as published by
@@ -17,6 +17,9 @@
 #include <m_string.h>
 #include <m_ctype.h>
 #include <fcntl.h>
+#ifdef HAVE_UNISTD_H
+#include <unistd.h>
+#endif
 #include <my_xml.h>
 
 #define ROW_LEN		16
@@ -145,8 +148,8 @@ static int add_collation(CHARSET_INFO *cs)
 
 
 static void
-default_reporter(enum loglevel level  __attribute__ ((unused)),
-                 const char *format  __attribute__ ((unused)),
+default_reporter(enum loglevel level  MY_ATTRIBUTE ((unused)),
+                 const char *format  MY_ATTRIBUTE ((unused)),
                  ...)
 {
 }
@@ -259,7 +262,10 @@ void dispcset(FILE *f,CHARSET_INFO *cs)
   fprintf(f,"  1,                          /* levels_for_compare */\n");
   fprintf(f,"  1,                          /* levels_for_order   */\n");
   
-  fprintf(f,"  &my_charset_8bit_handler,\n");
+  if (my_charset_is_8bit_pure_ascii(cs))
+    fprintf(f,"  &my_charset_ascii_handler,\n");
+  else
+    fprintf(f,"  &my_charset_8bit_handler,\n");
   if (cs->state & MY_CS_BINSORT)
     fprintf(f,"  &my_collation_8bit_bin_handler,\n");
   else
@@ -272,7 +278,7 @@ static void
 fprint_copyright(FILE *file)
 {
   fprintf(file,
-"/* Copyright (c) 2003, 2011, Oracle and/or its affiliates. All rights reserved.\n"
+"/* Copyright (c) 2003, 2016, Oracle and/or its affiliates. All rights reserved.\n"
 "\n"
 "   This program is free software; you can redistribute it and/or modify\n"
 "   it under the terms of the GNU General Public License as published by\n"
@@ -291,7 +297,7 @@ fprint_copyright(FILE *file)
 
 
 int
-main(int argc, char **argv  __attribute__((unused)))
+main(int argc, char **argv  MY_ATTRIBUTE((unused)))
 {
   CHARSET_INFO  ncs;
   CHARSET_INFO  *cs;
@@ -330,7 +336,7 @@ main(int argc, char **argv  __attribute__((unused)))
   fprintf(f, "  edit the XML definitions in sql/share/charsets/ instead.\n\n");
   fprintf(f, "  To re-generate, run the following in the strings/ "
           "directory:\n");
-  fprintf(f, "    ./conf_to_src ../sql/share/charsets/ > FILE\n");
+  fprintf(f, "    ./conf_to_src {CMAKE_SOURCE_DIR}/sql/share/charsets/ > ctype-extra.c\n");
   fprintf(f, "*/\n\n");
   fprint_copyright(f);
   fprintf(f,"#include <my_global.h>\n");

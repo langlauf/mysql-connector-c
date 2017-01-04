@@ -1,4 +1,4 @@
-/* Copyright (c) 2000, 2014, Oracle and/or its affiliates. All rights reserved.
+/* Copyright (c) 2000, 2016, Oracle and/or its affiliates. All rights reserved.
 
    This program is free software; you can redistribute it and/or modify
    it under the terms of the GNU General Public License as published by
@@ -21,7 +21,6 @@
 #include "mysys_priv.h"
 #include "my_static.h"
 
-PSI_memory_key key_memory_array_buffer;
 PSI_memory_key key_memory_charset_file;
 PSI_memory_key key_memory_charset_loader;
 PSI_memory_key key_memory_lf_node;
@@ -89,19 +88,41 @@ void (*fatal_error_handler_hook)(uint error, const char *str, myf MyFlags)=
 void (*local_message_hook)(enum loglevel ll, const char *format, va_list args)=
   my_message_local_stderr;
 
-static void proc_info_dummy(void *a __attribute__((unused)),
-                            const PSI_stage_info *b __attribute__((unused)),
-                            PSI_stage_info *c __attribute__((unused)),
-                            const char *d __attribute__((unused)),
-                            const char *e __attribute__((unused)),
-                            const unsigned int f __attribute__((unused)))
+static void enter_cond_dummy(void *a MY_ATTRIBUTE((unused)),
+                             mysql_cond_t *b MY_ATTRIBUTE((unused)),
+                             mysql_mutex_t *c MY_ATTRIBUTE((unused)),
+                             const PSI_stage_info *d MY_ATTRIBUTE((unused)),
+                             PSI_stage_info *e MY_ATTRIBUTE((unused)),
+                             const char *f MY_ATTRIBUTE((unused)),
+                             const char *g MY_ATTRIBUTE((unused)),
+                             int h MY_ATTRIBUTE((unused)))
+{ };
+
+static void exit_cond_dummy(void *a MY_ATTRIBUTE((unused)),
+                            const PSI_stage_info *b MY_ATTRIBUTE((unused)),
+                            const char *c MY_ATTRIBUTE((unused)),
+                            const char *d MY_ATTRIBUTE((unused)),
+                            int e MY_ATTRIBUTE((unused)))
+{ };
+
+static int is_killed_dummy(const void *a MY_ATTRIBUTE((unused)))
 {
-  return;
+  return 0;
 }
 
-/* this is to be able to call set_thd_proc_info from the C code */
-void (*proc_info_hook)(void *, const PSI_stage_info *, PSI_stage_info *,
-                       const char *, const char *, const unsigned int)= proc_info_dummy;
+/*
+  Initialize these hooks to dummy implementations. The real server
+  implementations will be set during server startup by
+  init_server_components().
+*/
+void (*enter_cond_hook)(void *, mysql_cond_t *, mysql_mutex_t *,
+                        const PSI_stage_info *, PSI_stage_info *,
+                        const char *, const char *, int)= enter_cond_dummy;
+
+void (*exit_cond_hook)(void *, const PSI_stage_info *,
+                       const char *, const char *, int)= exit_cond_dummy;
+
+int (*is_killed_hook)(const void *)= is_killed_dummy;
 
 #if defined(ENABLED_DEBUG_SYNC)
 /**

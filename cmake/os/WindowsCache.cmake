@@ -1,4 +1,4 @@
-# Copyright (c) 2010, 2014, Oracle and/or its affiliates. All rights reserved.
+# Copyright (c) 2010, 2016, Oracle and/or its affiliates. All rights reserved.
 #
 # This program is free software; you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
@@ -127,6 +127,7 @@ SET(HAVE_SLEEP CACHE  INTERNAL "")
 SET(HAVE_STPCPY CACHE  INTERNAL "")
 SET(HAVE_STPNCPY CACHE  INTERNAL "")
 SET(HAVE_STRLCPY CACHE  INTERNAL "")
+SET(HAVE_STRNDUP CACHE  INTERNAL "") # Used by libbinlogevents
 SET(HAVE_STRNLEN 1 CACHE  INTERNAL "")
 SET(HAVE_STRLCAT CACHE  INTERNAL "")
 SET(HAVE_STRSIGNAL CACHE  INTERNAL "")
@@ -170,8 +171,6 @@ SET(HAVE_KQUEUE CACHE INTERNAL "")         # Only needed by CMake
 SET(HAVE_EVFILT_TIMER CACHE INTERNAL "")   # Only needed by CMake
 # Derived result HAVE_KQUEUE_TIMERS
 # Derived result HAVE_POSIX_TIMERS
-# Derived result HAVE_WINDOWS_TIMERS
-# Derived result HAVE_MY_TIMER
 
 # Endianess
 SET(HAVE_WORDS_BIGENDIAN TRUE CACHE  INTERNAL "")  # Only needed by CMake
@@ -196,6 +195,7 @@ SET(SIZEOF_TIME_T 8 CACHE  INTERNAL "")
 SET(HAVE_SIZEOF_UINT FALSE CACHE  INTERNAL "")
 SET(HAVE_SIZEOF_ULONG FALSE CACHE  INTERNAL "")
 SET(HAVE_SIZEOF_U_INT32_T FALSE CACHE  INTERNAL "")
+# Check needed HAVE_STRUCT_TIMESPEC
 
 # Code tests
 SET(STACK_DIRECTION -1 CACHE INTERNAL "")
@@ -210,6 +210,7 @@ SET(HAVE_BUILTIN_UNREACHABLE CACHE  INTERNAL "")
 SET(HAVE_BUILTIN_EXPECT CACHE  INTERNAL "")
 SET(HAVE_BUILTIN_STPCPY CACHE  INTERNAL "")
 SET(HAVE_GCC_ATOMIC_BUILTINS CACHE  INTERNAL "")
+SET(HAVE_GCC_SYNC_BUILTINS CACHE  INTERNAL "")
 # Derived result HAVE_VALGRIND
 
 # IPV6

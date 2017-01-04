@@ -1,4 +1,4 @@
-/* Copyright (c) 2000, 2014, Oracle and/or its affiliates. All rights reserved.
+/* Copyright (c) 2000, 2015, Oracle and/or its affiliates. All rights reserved.
 
    This program is free software; you can redistribute it and/or modify
    it under the terms of the GNU General Public License as published by
@@ -17,12 +17,14 @@
 
 #ifndef _thr_lock_h
 #define _thr_lock_h
+
+#include <my_thread.h>
+#include <my_list.h>
+#include "mysql/psi/mysql_thread.h"
+
 #ifdef	__cplusplus
 extern "C" {
 #endif
-
-#include <my_pthread.h>
-#include <my_list.h>
 
 struct st_thr_lock;
 extern ulong locks_immediate,locks_waited ;
@@ -80,7 +82,6 @@ enum enum_thr_lock_result { THR_LOCK_SUCCESS= 0, THR_LOCK_ABORTED= 1,
 
 
 extern ulong max_write_lock_count;
-extern my_bool thr_lock_inited;
 extern enum thr_lock_type thr_upgraded_concurrent_insert_lock;
 
 /*
@@ -90,8 +91,8 @@ extern enum thr_lock_type thr_upgraded_concurrent_insert_lock;
 
 typedef struct st_thr_lock_info
 {
-  pthread_t thread;
   my_thread_id thread_id;
+  mysql_cond_t *suspend;
 } THR_LOCK_INFO;
 
 
@@ -131,8 +132,8 @@ typedef struct st_thr_lock {
 extern LIST *thr_lock_thread_list;
 extern mysql_mutex_t THR_LOCK_lock;
 
-my_bool init_thr_lock(void);		/* Must be called once/thread */
-void thr_lock_info_init(THR_LOCK_INFO *info);
+void thr_lock_info_init(THR_LOCK_INFO *info, my_thread_id thread_id,
+                        mysql_cond_t *suspend);
 void thr_lock_init(THR_LOCK *lock);
 void thr_lock_delete(THR_LOCK *lock);
 void thr_lock_data_init(THR_LOCK *lock,THR_LOCK_DATA *data,

@@ -1,4 +1,4 @@
-/* Copyright (c) 2000, 2015, Oracle and/or its affiliates. All rights reserved.
+/* Copyright (c) 2000, 2016, Oracle and/or its affiliates. All rights reserved.
 
    This program is free software; you can redistribute it and/or modify
    it under the terms of the GNU General Public License as published by
@@ -65,16 +65,16 @@ void init_vio_psi_keys()
   @retval 1       The requested I/O event has occurred.
 */
 
-static int no_io_wait(Vio *vio __attribute__((unused)),
-                      enum enum_vio_io_event event __attribute__((unused)),
-                      int timeout __attribute__((unused)))
+static int no_io_wait(Vio *vio MY_ATTRIBUTE((unused)),
+                      enum enum_vio_io_event event MY_ATTRIBUTE((unused)),
+                      int timeout MY_ATTRIBUTE((unused)))
 {
   return 1;
 }
 
 #endif
 
-static my_bool has_no_data(Vio *vio __attribute__((unused)))
+static my_bool has_no_data(Vio *vio MY_ATTRIBUTE((unused)))
 {
   return FALSE;
 }
@@ -203,7 +203,7 @@ static void vio_init(Vio *vio, enum enum_vio_type type,
 */
 
 my_bool vio_reset(Vio* vio, enum enum_vio_type type,
-                  my_socket sd, void *ssl __attribute__((unused)), uint flags)
+                  my_socket sd, void *ssl MY_ATTRIBUTE((unused)), uint flags)
 {
   int ret= FALSE;
   Vio new_vio;
@@ -227,10 +227,10 @@ my_bool vio_reset(Vio* vio, enum enum_vio_type type,
     such as the socket blocking mode.
   */
   if (vio->read_timeout >= 0)
-    ret|= vio_timeout(&new_vio, 0, vio->read_timeout);
+    ret|= vio_timeout(&new_vio, 0, vio->read_timeout / 1000);
 
   if (vio->write_timeout >= 0)
-    ret|= vio_timeout(&new_vio, 1, vio->write_timeout);
+    ret|= vio_timeout(&new_vio, 1, vio->write_timeout / 1000);
 
   if (ret)
   {
@@ -412,10 +412,48 @@ void vio_end(void)
 #if defined(HAVE_YASSL)
   yaSSL_CleanUp();
 #elif defined(HAVE_OPENSSL)
-  // This one is needed on the client side
-  ERR_remove_state(0);
-  ERR_free_strings();
-  EVP_cleanup();
-  CRYPTO_cleanup_all_ex_data();
+  vio_ssl_end();
 #endif
 }
+
+struct vio_string
+{
+  const char * m_str;
+  int m_len;
+};
+typedef struct vio_string vio_string;
+
+/**
+  Names for each VIO TYPE.
+  Indexed by enum_vio_type.
+  If you add more, please update audit_log.cc
+*/
+static const vio_string vio_type_names[] =
+{
+  { "", 0},
+  { C_STRING_WITH_LEN("TCP/IP") },
+  { C_STRING_WITH_LEN("Socket") },
+  { C_STRING_WITH_LEN("Named Pipe") },
+  { C_STRING_WITH_LEN("SSL/TLS") },
+  { C_STRING_WITH_LEN("Shared Memory") },
+  { C_STRING_WITH_LEN("Internal") },
+  { C_STRING_WITH_LEN("Plugin") }
+};
+
+void get_vio_type_name(enum enum_vio_type vio_type, const char ** str, int * len)
+{
+  int index;
+
+  if ((vio_type >= FIRST_VIO_TYPE) && (vio_type <= LAST_VIO_TYPE))
+  {
+    index= vio_type;
+  }
+  else
+  {
+    index= 0;
+  }
+  *str= vio_type_names[index].m_str;
+  *len= vio_type_names[index].m_len;
+  return;
+}
+

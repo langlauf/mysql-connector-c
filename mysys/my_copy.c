@@ -1,4 +1,4 @@
-/* Copyright (c) 2000, 2013, Oracle and/or its affiliates. All rights reserved.
+/* Copyright (c) 2000, 2015, Oracle and/or its affiliates. All rights reserved.
 
    This program is free software; you can redistribute it and/or modify
    it under the terms of the GNU General Public License as published by
@@ -14,9 +14,11 @@
    Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301  USA */
 
 #include "mysys_priv.h"
+#include "my_sys.h"
 #include <my_dir.h> /* for stat */
 #include <m_string.h>
 #include "mysys_err.h"
+#include "my_thread_local.h"
 
 #ifndef _WIN32
 #include <utime.h>
@@ -55,6 +57,7 @@ int my_copy(const char *from, const char *to, myf MyFlags)
   DBUG_PRINT("my",("from %s to %s MyFlags %d", from, to, MyFlags));
 
   from_file=to_file= -1;
+  memset(&new_stat_buff, 0, sizeof(MY_STAT));
   DBUG_ASSERT(!(MyFlags & (MY_FNABP | MY_NABP))); /* for my_read/my_write */
   if (MyFlags & MY_HOLD_ORIGINAL_MODES)		/* Copy stat if possible */
     new_file_stat= MY_TEST(my_stat((char*) to, &new_stat_buff, MYF(0)));
@@ -63,7 +66,7 @@ int my_copy(const char *from, const char *to, myf MyFlags)
   {
     if (!my_stat(from, &stat_buff, MyFlags))
     {
-      my_errno=errno;
+      set_my_errno(errno);
       goto err;
     }
     if (MyFlags & MY_HOLD_ORIGINAL_MODES && new_file_stat)
@@ -103,7 +106,7 @@ int my_copy(const char *from, const char *to, myf MyFlags)
     /* Copy modes */
     if (chmod(to, stat_buff.st_mode & 07777))
     {
-      my_errno= errno;
+      set_my_errno(errno);
       if (MyFlags & (MY_FAE+MY_WME))
       {
         char  errbuf[MYSYS_STRERROR_SIZE];
@@ -116,7 +119,7 @@ int my_copy(const char *from, const char *to, myf MyFlags)
     /* Copy ownership */
     if (chown(to, stat_buff.st_uid, stat_buff.st_gid))
     {
-      my_errno= errno;
+      set_my_errno(errno);
       if (MyFlags & (MY_FAE+MY_WME))
       {
         char  errbuf[MYSYS_STRERROR_SIZE];

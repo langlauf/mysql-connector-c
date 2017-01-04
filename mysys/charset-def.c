@@ -1,4 +1,4 @@
-/* Copyright (c) 2000, 2014, Oracle and/or its affiliates. All rights reserved.
+/* Copyright (c) 2000, 2016, Oracle and/or its affiliates. All rights reserved.
 
    This program is free software; you can redistribute it and/or modify
    it under the terms of the GNU General Public License as published by
@@ -14,6 +14,7 @@
    Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301  USA */
 
 #include "mysys_priv.h"
+#include "my_sys.h"
 
 /*
   Include all compiled character sets into the client
@@ -164,12 +165,11 @@ extern CHARSET_INFO my_charset_gb18030_unicode_520_ci;
 # endif /* HAVE_CHARSET_gb18030 */
 #endif /* HAVE_UCA_COLLATIONS */
 
-my_bool init_compiled_charsets(myf flags __attribute__((unused)))
+my_bool init_compiled_charsets(myf flags MY_ATTRIBUTE((unused)))
 {
   CHARSET_INFO *cs;
 
   add_compiled_collation(&my_charset_bin);
-  add_compiled_collation(&my_charset_filename);
   
   add_compiled_collation(&my_charset_latin1);
   add_compiled_collation(&my_charset_latin1_bin);

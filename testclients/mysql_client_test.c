@@ -1,4 +1,4 @@
-/* Copyright (c) 2002, 2014, Oracle and/or its affiliates. All rights reserved.
+/* Copyright (c) 2002, 2016, Oracle and/or its affiliates. All rights reserved.
 
    This program is free software; you can redistribute it and/or modify
    it under the terms of the GNU General Public License as published by
@@ -317,7 +317,7 @@ static void test_prepare_insert_update()
   const char **cur_query;
 
   myheader("test_prepare_insert_update");
-  
+
   for (cur_query= testcase; *cur_query; cur_query++)
   {
     char query[MAX_TEST_QUERY_LENGTH];
@@ -513,6 +513,11 @@ static void test_wl4435()
   MYSQL_BIND ps_params[WL4435_NUM_PARAMS];
 
   int exec_counter;
+
+  memset(str_data, 0, sizeof(str_data));
+  memset(dbl_data, 0, sizeof(dbl_data));
+  memset(dec_data, 0, sizeof(dec_data));
+  memset(int_data, 0, sizeof(int_data));
 
   myheader("test_wl4435");
   mct_start_logging("test_wl4435");
@@ -994,7 +999,7 @@ static void test_wl4435_2()
   MYSQL_RES *rs_metadata; \
   MYSQL_FIELD *fields; \
   c_type pspv c_type_ext; \
-  my_bool psp_null; \
+  my_bool psp_null= FALSE; \
   \
   memset(&pspv, 0, sizeof (pspv));                \
   \
@@ -1536,6 +1541,7 @@ static void test_double_compare()
 
   /* Always memset bind array because there can be internal members */
   memset(my_bind, 0, sizeof(my_bind));
+  memset(real_data, 0, sizeof(real_data));
 
   /* tinyint */
   my_bind[0].buffer_type= MYSQL_TYPE_TINY;
@@ -2120,6 +2126,7 @@ static void test_ps_conj_select()
   mysql_stmt_close(stmt);
 }
 
+#ifdef DISABLED_TESTS
 
 /* reads Qcache_hits from server and returns its value */
 static uint query_cache_hits(MYSQL *conn)
@@ -2142,6 +2149,7 @@ static uint query_cache_hits(MYSQL *conn)
   return result;
 }
 
+#endif
 
 /*
   utility for the next test; expects 3 rows in the result from a SELECT,
@@ -2179,7 +2187,13 @@ static uint query_cache_hits(MYSQL *conn)
 /*
   Test that prepared statements make use of the query cache just as normal
   statements (BUG#735).
+
+  Note: Disabling this test as it is testing server implementation of query
+  cache and prepared statements, not client library.
 */
+
+#ifdef DISABLED_TESTS
+
 static void test_ps_query_cache()
 {
   MYSQL      *lmysql= mysql;
@@ -2387,6 +2401,8 @@ static void test_ps_query_cache()
   rc= mysql_query(mysql, "set global query_cache_size=DEFAULT");
   myquery(rc);
 }
+
+#endif
 
 
 /* Test BUG#1115 (incorrect string parameter value allocation) */
@@ -3705,7 +3721,7 @@ static void test_bind_result_ext1()
   short      i_data;
   uchar      b_data;
   int        f_data;
-  long       bData;
+  long       bData= 0;
   char       d_data[20];
   double     szData;
   MYSQL_BIND my_bind[8];
@@ -5189,6 +5205,7 @@ static void test_manual_sample()
     its members.
   */
   memset(my_bind, 0, sizeof(my_bind));
+  memset(str_data, 0, sizeof(str_data));
 
   /* INTEGER PART */
   my_bind[0].buffer_type= MYSQL_TYPE_LONG;
@@ -7199,7 +7216,7 @@ static void test_embedded_start_stop()
     /* Load the client defaults from the .cnf file[s]. */
     if (load_defaults("my", client_test_load_default_groups, &argc, &argv))
     {
-      myerror("load_defaults failed"); 
+      myerror("load_defaults failed");
       exit(1);
     }
 
@@ -7211,7 +7228,7 @@ static void test_embedded_start_stop()
                            embedded_server_args,
                            (char**) embedded_server_groups))
     {
-      myerror("mysql_library_init failed"); 
+      myerror("mysql_library_init failed");
       exit(1);
     }
 
@@ -7251,7 +7268,7 @@ static void test_embedded_start_stop()
 
   if (load_defaults("my", client_test_load_default_groups, &argc, &argv))
   {
-    myerror("load_defaults failed \n "); 
+    myerror("load_defaults failed \n ");
     exit(1);
   }
 
@@ -7493,6 +7510,7 @@ static void test_decimal_bug()
     its members.
   */
   memset(my_bind, 0, sizeof(my_bind));
+  memset(data, 0, sizeof(data));
 
   my_bind[0].buffer_type= MYSQL_TYPE_NEWDECIMAL;
   my_bind[0].buffer= (void *)data;
@@ -7699,7 +7717,7 @@ static void test_explain_bug()
   }
   else
   {
-    verify_prepare_field(result, no++, "key_len", "", MYSQL_TYPE_VAR_STRING, "", 
+    verify_prepare_field(result, no++, "key_len", "", MYSQL_TYPE_VAR_STRING, "",
                          "", "", NAME_CHAR_LEN*MAX_KEY, 0);
   }
 
@@ -11494,6 +11512,7 @@ static void test_view_insert_fields()
                   " from t1 T0001");
 
   memset(my_bind, 0, sizeof(my_bind));
+  memset(parm, 0, sizeof(parm));
   for (i= 0; i < 11; i++)
   {
     l[i]= 20;
@@ -11659,7 +11678,7 @@ static void test_bug5399()
     Ascii 97 is 'a', which gets mapped to Ascii 65 'A' unless internal
     statement id hash in the server uses binary collation.
   */
-#define NUM_OF_USED_STMT 97 
+#define NUM_OF_USED_STMT 97
   MYSQL_STMT *stmt_list[NUM_OF_USED_STMT];
   MYSQL_STMT **stmt;
   MYSQL_BIND my_bind[1];
@@ -12636,7 +12655,7 @@ static void test_rewind(void)
   while(!(rc= mysql_stmt_fetch(stmt)))
     if (!opt_silent)
       printf("fetched result after seek:%ld\n", Data);
-  
+
   DIE_UNLESS(rc == MYSQL_NO_DATA);
 
   stmt_text= "DROP TABLE t1";
@@ -12672,7 +12691,7 @@ static void test_truncation()
   myquery(rc);
 
   {
-    const char insert_text[]= 
+    const char insert_text[]=
              "insert into t1 VALUES ("
              "-10, "                            /* i8 */
              "200, "                            /* ui8 */
@@ -12989,6 +13008,7 @@ static void test_bug8330()
   myquery(rc);
 
   memset(my_bind, 0, sizeof(my_bind));
+  memset(lval, 0, sizeof(lval));
   for (i=0; i < 2; i++)
   {
     stmt[i]= mysql_stmt_init(mysql);
@@ -13199,7 +13219,7 @@ from t2);");
 
 
 /*
- Test mysql_real_escape_string() with gbk charset
+ Test mysql_real_escape_string_quote() with gbk charset
 
  The important part is that 0x27 (') is the second-byte in a invalid
  two-byte GBK character here. But 0xbf5c is a valid GBK character, so
@@ -13243,13 +13263,13 @@ static void test_bug8378()
   rc= mysql_query(lmysql, "SET SQL_MODE=''");
   myquery(rc);
 
-  len= mysql_real_escape_string(lmysql, out, TEST_BUG8378_IN, 4);
+  len= mysql_real_escape_string_quote(lmysql, out, TEST_BUG8378_IN, 4, '\'');
 
   /* No escaping should have actually happened. */
   DIE_UNLESS(memcmp(out, TEST_BUG8378_OUT, len) == 0);
 
   sprintf(buf, "SELECT '%s'", out);
-  
+
   rc=mysql_real_query(lmysql, buf, (ulong)strlen(buf));
   myquery(rc);
 
@@ -13446,6 +13466,7 @@ static void test_bug9478()
   stmt= open_cursor("select name from t1 where id=2");
 
   memset(my_bind, 0, sizeof(my_bind));
+  memset(a, 0, sizeof(a));
   my_bind[0].buffer_type= MYSQL_TYPE_STRING;
   my_bind[0].buffer= (char*) a;
   my_bind[0].buffer_length= (ulong)sizeof(a);
@@ -13482,6 +13503,7 @@ static void test_bug9478()
 
     {
       uchar buff[8];
+      memset(buff, 0, sizeof(buff));
       /* Fill in the fetch packet */
       int4store(buff, stmt->stmt_id);
       buff[4]= 1;                               /* prefetch rows */
@@ -14067,7 +14089,7 @@ static void test_bug11656()
 
 /*
   Check that the server signals when NO_BACKSLASH_ESCAPES mode is in effect,
-  and mysql_real_escape_string() does the right thing as a result.
+  and mysql_real_escape_string_quote() does the right thing as a result.
 */
 
 static void test_bug10214()
@@ -14079,14 +14101,78 @@ static void test_bug10214()
 
   DIE_UNLESS(!(mysql->server_status & SERVER_STATUS_NO_BACKSLASH_ESCAPES));
 
-  len= mysql_real_escape_string(mysql, out, "a'b\\c", 5);
+  len= mysql_real_escape_string_quote(mysql, out, "a'b\\c", 5, '\'');
   DIE_UNLESS(memcmp(out, "a\\'b\\\\c", len) == 0);
 
   mysql_query(mysql, "set sql_mode='NO_BACKSLASH_ESCAPES'");
   DIE_UNLESS(mysql->server_status & SERVER_STATUS_NO_BACKSLASH_ESCAPES);
 
-  len= mysql_real_escape_string(mysql, out, "a'b\\c", 5);
+  len= mysql_real_escape_string_quote(mysql, out, "a'b\\c", 5, '\'');
   DIE_UNLESS(memcmp(out, "a''b\\c", len) == 0);
+
+  mysql_query(mysql, "set sql_mode=''");
+}
+
+/*
+  Check that the server signals when NO_BACKSLASH_ESCAPES mode is in effect,
+  a deprecated mysql_real_escape_string() function exits with error and the
+  mysql_real_escape_string_quote() does the right thing as a result.
+*/
+
+static void test_bug21246()
+{
+  int   len;
+  char  out[11];
+
+  myheader("test_bug21246");
+
+  DIE_UNLESS(!(mysql->server_status & SERVER_STATUS_NO_BACKSLASH_ESCAPES));
+
+  len= mysql_real_escape_string(mysql, out, "a'b\\c", 5);
+  DIE_UNLESS(len == 7);
+  DIE_UNLESS(memcmp(out, "a\\'b\\\\c", len) == 0);
+
+  len = mysql_real_escape_string_quote(mysql, out, "a'b\\c", 5, '\'');
+  DIE_UNLESS(len == 7);
+  DIE_UNLESS(memcmp(out, "a\\'b\\\\c", len) == 0);
+
+  len = mysql_real_escape_string_quote(mysql, out, "`a'b\\c`", 7, '\'');
+  DIE_UNLESS(len == 9);
+  DIE_UNLESS(memcmp(out, "`a\\'b\\\\c`", len) == 0);
+
+  len = mysql_real_escape_string_quote(mysql, out, "`a'b\\c`", 7, '`');
+  DIE_UNLESS(len == 9);
+  DIE_UNLESS(memcmp(out, "``a'b\\c``", len) == 0);
+
+  len = mysql_real_escape_string_quote(mysql, out, "`a'b\\c\"", 7, '"');
+  DIE_UNLESS(len == 10);
+  DIE_UNLESS(memcmp(out, "`a\\'b\\\\c\\\"", len) == 0);
+
+  mysql_query(mysql, "set sql_mode='NO_BACKSLASH_ESCAPES'");
+  DIE_UNLESS(mysql->server_status & SERVER_STATUS_NO_BACKSLASH_ESCAPES);
+
+  len = mysql_real_escape_string(mysql, out, "a'b\\c", 5);
+  DIE_UNLESS(len == -1);
+
+  len= mysql_real_escape_string_quote(mysql, out, "a'b\"c", 5, '\'');
+  DIE_UNLESS(len == 6);
+  DIE_UNLESS(memcmp(out, "a''b\"c", len) == 0);
+
+  len = mysql_real_escape_string_quote(mysql, out, "a'b\"c", 5, '\"');
+  DIE_UNLESS(len == 6);
+  DIE_UNLESS(memcmp(out, "a'b\"\"c", len) == 0);
+
+  len = mysql_real_escape_string_quote(mysql, out, "`a'b\"c`\"", 8, '\"');
+  DIE_UNLESS(len == 10);
+  DIE_UNLESS(memcmp(out, "`a'b\"\"c`\"\"", len) == 0);
+
+  len = mysql_real_escape_string_quote(mysql, out, "`a'b\"c`\"", 8, '`');
+  DIE_UNLESS(len == 10);
+  DIE_UNLESS(memcmp(out, "``a'b\"c``\"", len) == 0);
+
+  len = mysql_real_escape_string_quote(mysql, out, "\"a'b\"c\"\"", 8, '`');
+  DIE_UNLESS(len == 8);
+  DIE_UNLESS(memcmp(out, "\"a'b\"c\"\"", len) == 0);
 
   mysql_query(mysql, "set sql_mode=''");
 }
@@ -14512,7 +14598,7 @@ static void test_bug11901()
   MYSQL_BIND my_bind[2]; */
   int rc;
 /*  char workdept[20];
-  ulong workdept_len; 
+  ulong workdept_len;
   uint32 empno; */
   const char *stmt_text;
 
@@ -15053,11 +15139,7 @@ static void test_bug15510()
 
   myheader("test_bug15510");
 
-  /* Behavior change introduced by WL#7467 */
-  if (mysql_get_server_version(mysql) < 50704)
-    rc= mysql_query(mysql, "set @@sql_mode='ERROR_FOR_DIVISION_BY_ZERO'");
-  else
-    rc= mysql_query(mysql, "set @@sql_mode='STRICT_ALL_TABLES'");
+  rc= mysql_query(mysql, "set @@sql_mode='ERROR_FOR_DIVISION_BY_ZERO'");
   myquery(rc);
 
   stmt= mysql_stmt_init(mysql);
@@ -15306,7 +15388,7 @@ static void test_bug17667()
     { QT_NORMAL, "create table bug17667 (c varchar(20))", 37 },
     { QT_NORMAL, "insert into bug17667 (c) values ('regular') /* NUL=\0 with comment */", 68 },
     { QT_PREPARED,
-      "insert into bug17667 (c) values ('prepared') /* NUL=\0 with comment */", 69, },
+      "insert into bug17667 (c) values ('prepared') /* NUL=\0 with comment */", 69 },
     { QT_NORMAL, "insert into bug17667 (c) values ('NUL=\0 in value')", 50 },
     { QT_NORMAL, "insert into bug17667 (c) values ('5 NULs=\0\0\0\0\0')", 48 },
     { QT_PREPARED, "insert into bug17667 (c) values ('6 NULs=\0\0\0\0\0\0')", 50 },
@@ -15510,7 +15592,7 @@ static void test_mysql_insert_id()
   DIE_UNLESS(res == 0);
   rc= mysql_query(mysql, "drop table t2");
   myquery(rc);
-  
+
   rc= mysql_query(mysql, "insert into t1 select null,'d'");
   myquery(rc);
   res= mysql_insert_id(mysql);
@@ -16344,6 +16426,8 @@ static void test_change_user()
                          opt_unix_socket, 0);
   DIE_UNLESS(l_mysql != 0);
 
+  rc = mysql_query(l_mysql, "set sql_mode=(select replace(@@sql_mode,'NO_AUTO_CREATE_USER',''))");
+  myquery2(l_mysql, rc);
 
   /* Prepare environment */
   sprintf(buff, "drop database if exists %s", db);
@@ -16388,7 +16472,7 @@ static void test_change_user()
   rc= mysql_change_user(l_mysql, NULL, NULL, NULL);
   DIE_UNLESS(rc);
   if (! opt_silent)
-    printf("Got error (as expected): %s\n", mysql_error(l_mysql)); 
+    printf("Got error (as expected): %s\n", mysql_error(l_mysql));
   reconnect(&l_mysql);
 
   rc= mysql_change_user(l_mysql, "", NULL, NULL);
@@ -16655,7 +16739,7 @@ static void test_bug29687()
 
 
 /*
-  Bug #29692  	Single row inserts can incorrectly report a huge number of 
+  Bug #29692  	Single row inserts can incorrectly report a huge number of
   row insertions
 */
 
@@ -17214,6 +17298,15 @@ static void test_bug31669()
 
   DBUG_ENTER("test_bug31669");
   myheader("test_bug31669");
+
+  if (mysql_get_server_version(mysql) < 50713)
+  {
+    if (!opt_silent)
+      fprintf(stdout, "Skipping test_bug31669: "
+              "maximal user length changed in 5.7 which brokes this test\n");
+    return;
+  }
+
 
   l_mysql= mysql_client_init(NULL);
   DIE_UNLESS(l_mysql != NULL);
@@ -18087,7 +18180,7 @@ static void test_bug43560(void)
   rc= mysql_stmt_execute(stmt);
   check_execute(stmt, rc);
 
-  /* 
+  /*
     Set up the server to close this session's server-side socket after
     next execution of prep statement.
   */
@@ -18100,7 +18193,7 @@ static void test_bug43560(void)
   rc= mysql_stmt_execute(stmt);
   DIE_UNLESS(rc && mysql_stmt_errno(stmt) == CR_SERVER_LOST);
 
-  /* 
+  /*
     Third execute; should fail (connection already closed), or SIGSEGV in
     case of a Bug#43560 type regression in which case the whole test fails.
   */
@@ -18123,7 +18216,12 @@ static void test_bug43560(void)
 
 /**
   Bug#36326: nested transaction and select
+
+  Note: Disabling this test as it is testing server implementation of
+  transactions, not cient library.
 */
+
+#ifdef DISABLED_TESTS
 
 static void test_bug36326()
 {
@@ -18171,6 +18269,8 @@ static void test_bug36326()
   DBUG_VOID_RETURN;
 }
 
+#endif
+
 /**
   Bug#41078: With CURSOR_TYPE_READ_ONLY mysql_stmt_fetch() returns short
              string value.
@@ -18198,7 +18298,7 @@ static void test_bug41078(void)
 
   rc= mysql_stmt_attr_set(stmt, STMT_ATTR_CURSOR_TYPE, &cursor_type);
   check_execute(stmt, rc);
-  
+
   memset(&param, 0, sizeof(param));
   param.buffer_type= MYSQL_TYPE_STRING;
   param.buffer= (void *) param_str;
@@ -18218,7 +18318,7 @@ static void test_bug41078(void)
   result.is_null= &is_null;
   result.length= &len;
   result.error=  &error;
-  
+
   rc= mysql_stmt_bind_result(stmt, &result);
   check_execute(stmt, rc);
 
@@ -18266,7 +18366,7 @@ static void test_bug45010()
 
 /**
   Bug#44495: Prepared Statement:
-             CALL p(<x>) - `thd->protocol == &thd->protocol_text' failed
+             CALL p(<x>) - `thd->get_protocol() == &thd->protocol_text' failed
 */
 
 static void test_bug44495()
@@ -18618,12 +18718,14 @@ static void test_bug47485()
 static void test_bug58036()
 {
   MYSQL *conn;
+  enum mysql_ssl_mode ssl_mode= SSL_MODE_DISABLED;
   DBUG_ENTER("test_bug47485");
   myheader("test_bug58036");
 
   /* Part1: try to connect with ucs2 client character set */
   conn= mysql_client_init(NULL);
   mysql_options(conn, MYSQL_SET_CHARSET_NAME, "ucs2");
+  mysql_options(conn, MYSQL_OPT_SSL_MODE, &ssl_mode);
   if (mysql_real_connect(conn, opt_host, opt_user,
                          opt_password,  opt_db ? opt_db : "test",
                          opt_port, opt_unix_socket, 0))
@@ -18636,7 +18738,7 @@ static void test_bug58036()
 
   if (!opt_silent)
     printf("Got mysql_real_connect() error (expected): %s (%d)\n",
-           mysql_error(conn), mysql_errno(conn));  
+           mysql_error(conn), mysql_errno(conn));
   DIE_UNLESS(mysql_errno(conn) == ER_WRONG_VALUE_FOR_VAR);
   mysql_close(conn);
 
@@ -18696,8 +18798,8 @@ static void test_bug49972()
 
   MYSQL_BIND in_param_bind;
   MYSQL_BIND out_param_bind;
-  int int_data;
-  my_bool is_null;
+  int int_data= 0;
+  my_bool is_null= FALSE;
 
   DBUG_ENTER("test_bug49972");
   myheader("test_bug49972");
@@ -18878,7 +18980,7 @@ static void test_bug57058()
 
 
 /**
-  Bug#11766854: 60075: MYSQL_LOAD_CLIENT_PLUGIN DOESN'T CLEAR ERROR 
+  Bug#11766854: 60075: MYSQL_LOAD_CLIENT_PLUGIN DOESN'T CLEAR ERROR
 */
 
 static void test_bug11766854()
@@ -18899,8 +19001,8 @@ static void test_bug11766854()
 }
 
 /**
-  Bug#12337762: 60075: MYSQL_LIST_FIELDS() RETURNS WRONG CHARSET FOR 
-                       CHAR/VARCHAR/TEXT COLUMNS IN VIEWS 
+  Bug#12337762: 60075: MYSQL_LIST_FIELDS() RETURNS WRONG CHARSET FOR
+                       CHAR/VARCHAR/TEXT COLUMNS IN VIEWS
 */
 static void test_bug12337762()
 {
@@ -18921,7 +19023,7 @@ static void test_bug12337762()
                          "txt2 varchar(32) character set Latin1 collate latin1_bin,"\
                          "txt3 varchar(32) character set utf8 collate utf8_bin"\
 						 ")");
-  
+
   DIE_UNLESS(rc == 0);
   DIE_IF(mysql_errno(mysql));
 
@@ -18964,7 +19066,7 @@ static void test_bug12337762()
     printf("field type %d\n", field->type);
     printf("field charset %d\n", field->charsetnr);
     printf("\n");
-    /* 
+    /*
       charset value for field must be same for both, view and table.
     */
     DIE_UNLESS(field->charsetnr == tab_charsetnr[i++]);
@@ -18983,6 +19085,7 @@ static void test_bug54790()
   int rc;
   MYSQL *lmysql;
   uint timeout= 2;
+  enum mysql_ssl_mode ssl_mode= SSL_MODE_DISABLED;
 
   DBUG_ENTER("test_bug54790");
   myheader("test_bug54790");
@@ -18993,6 +19096,7 @@ static void test_bug54790()
   rc= mysql_options(lmysql, MYSQL_OPT_READ_TIMEOUT, &timeout);
   DIE_UNLESS(!rc);
 
+  mysql_options(lmysql, MYSQL_OPT_SSL_MODE, &ssl_mode);
   if (!mysql_real_connect(lmysql, opt_host, opt_user, opt_password,
                           opt_db ? opt_db : "test", opt_port,
                           opt_unix_socket, 0))
@@ -19056,14 +19160,14 @@ static void test_bug13001491()
   my_snprintf(query, MAX_TEST_QUERY_LENGTH,
            "GRANT ALL PRIVILEGES ON *.* TO mysqltest_u1@%s",
            opt_host ? opt_host : "'localhost'");
-           
+
   rc= mysql_query(mysql, query);
   myquery(rc);
 
   my_snprintf(query, MAX_TEST_QUERY_LENGTH,
            "GRANT RELOAD ON *.* TO mysqltest_u1@%s",
            opt_host ? opt_host : "'localhost'");
-           
+
   rc= mysql_query(mysql, query);
   myquery(rc);
 
@@ -19116,7 +19220,7 @@ static void test_bug13001491()
   my_snprintf(query, MAX_TEST_QUERY_LENGTH,
            "DROP USER mysqltest_u1@%s",
            opt_host ? opt_host : "'localhost'");
-           
+
   rc= mysql_query(mysql, query);
   myquery(rc);
 }
@@ -19291,7 +19395,7 @@ static void test_wl5924()
 static void test_wl6587()
 {
   int rc;
-  MYSQL *l_mysql;
+  MYSQL *l_mysql, *r_mysql;
   my_bool can;
 
   myheader("test_wl6587");
@@ -19316,10 +19420,11 @@ static void test_wl6587()
   DIE_UNLESS(l_mysql != NULL);
 
   /* connect must fail : the flag is off by default */
-  l_mysql= mysql_real_connect(l_mysql, opt_host, "wl6587_cli",
+  r_mysql= mysql_real_connect(l_mysql, opt_host, "wl6587_cli",
                               "wl6587", "test", opt_port,
                               opt_unix_socket, 0);
-  DIE_UNLESS(l_mysql == 0);
+  DIE_UNLESS(r_mysql == 0);
+  mysql_close(l_mysql);
 
   l_mysql= mysql_client_init(NULL);
   DIE_UNLESS(l_mysql != NULL);
@@ -19596,18 +19701,16 @@ static void test_wl6791()
   enum mysql_option
   uint_opts[] = {
     MYSQL_OPT_CONNECT_TIMEOUT, MYSQL_OPT_READ_TIMEOUT, MYSQL_OPT_WRITE_TIMEOUT,
-    MYSQL_OPT_PROTOCOL, MYSQL_OPT_LOCAL_INFILE
-  },
+    MYSQL_OPT_PROTOCOL, MYSQL_OPT_LOCAL_INFILE, MYSQL_OPT_SSL_MODE},
   my_bool_opts[] = {
     MYSQL_OPT_COMPRESS, MYSQL_OPT_USE_REMOTE_CONNECTION,
     MYSQL_OPT_USE_EMBEDDED_CONNECTION, MYSQL_OPT_GUESS_CONNECTION,
     MYSQL_REPORT_DATA_TRUNCATION, MYSQL_OPT_RECONNECT,
     MYSQL_OPT_SSL_VERIFY_SERVER_CERT, MYSQL_OPT_SSL_ENFORCE,
-    MYSQL_ENABLE_CLEARTEXT_PLUGIN, MYSQL_OPT_CAN_HANDLE_EXPIRED_PASSWORDS
-  },
+    MYSQL_ENABLE_CLEARTEXT_PLUGIN, MYSQL_OPT_CAN_HANDLE_EXPIRED_PASSWORDS},
   const_char_opts[] = {
     MYSQL_READ_DEFAULT_FILE, MYSQL_READ_DEFAULT_GROUP,
-    MYSQL_SET_CHARSET_DIR, MYSQL_SET_CHARSET_NAME, 
+    MYSQL_SET_CHARSET_DIR, MYSQL_SET_CHARSET_NAME,
 #if defined (_WIN32) && !defined (EMBEDDED_LIBRARY)
     /* mysql_options() is a no-op on non-supporting platforms. */
     MYSQL_SHARED_MEMORY_BASE_NAME,
@@ -19615,8 +19718,7 @@ static void test_wl6791()
     MYSQL_SET_CLIENT_IP, MYSQL_OPT_BIND, MYSQL_PLUGIN_DIR, MYSQL_DEFAULT_AUTH,
     MYSQL_OPT_SSL_KEY, MYSQL_OPT_SSL_CERT, MYSQL_OPT_SSL_CA, MYSQL_OPT_SSL_CAPATH,
     MYSQL_OPT_SSL_CIPHER, MYSQL_OPT_SSL_CRL, MYSQL_OPT_SSL_CRLPATH,
-    MYSQL_SERVER_PUBLIC_KEY
-  },
+    MYSQL_SERVER_PUBLIC_KEY},
   err_opts[] = {
     MYSQL_OPT_NAMED_PIPE, MYSQL_OPT_CONNECT_ATTR_RESET,
     MYSQL_OPT_CONNECT_ATTR_DELETE, MYSQL_INIT_COMMAND
@@ -19703,7 +19805,7 @@ static void test_wl6791()
   result= mysql_store_result(mysql); \
   mytest(result); \
   (void) my_process_result_set(result); \
-  mysql_free_result(result); 
+  mysql_free_result(result);
 
 static void test_wl5768()
 {
@@ -19744,18 +19846,18 @@ static void test_wl5768()
   bind[0].is_null= 0;
   rc= mysql_stmt_bind_param(stmt, bind);
   check_execute(stmt, rc);
-  
+
   // Set the data to be inserted.
   int_data= 25;
-  
+
   // Execute the prepared statement.
   rc= mysql_stmt_execute(stmt);
   check_execute(stmt, rc);
 
   // Query P_S table.
   QUERY_PREPARED_STATEMENTS_INSTANCES_TABLE;
- 
-  // execute the prepared statement for 3 more times to check COUNT_EXECUTE 
+
+  // execute the prepared statement for 3 more times to check COUNT_EXECUTE
   rc= mysql_stmt_execute(stmt);
   check_execute(stmt, rc);
 
@@ -19774,24 +19876,24 @@ static void test_wl5768()
 
   // Deallocate/Close the prepared statement.
   mysql_stmt_close(stmt);
- 
+
   rc= mysql_query(mysql, "DROP PROCEDURE IF EXISTS proc");
   myquery(rc);
 
   // Check the instrumentation of the statement prepared in a stored procedure
   rc= mysql_query(mysql, "CREATE PROCEDURE proc(IN a INT)"
-                         "BEGIN" 
+                         "BEGIN"
                          "  SET @stmt = CONCAT('UPDATE ps_t1 SET Id = ? WHERE Id > 100');"
                          "  PREPARE st FROM @stmt;"
                          "  EXECUTE st USING @a;"
                          "  DEALLOCATE PREPARE st;"
                          "END;");
   myquery(rc);
-  
+
   sp_stmt= mysql_simple_prepare(mysql, "CALL proc(?)");
   check_stmt(sp_stmt);
   verify_param_count(sp_stmt, 1);
-  
+
   memset(bind, 0, sizeof (bind));
   bind[0].buffer_type= MYSQL_TYPE_LONG;
   bind[0].buffer= (long *) &int_data;
@@ -19808,13 +19910,13 @@ static void test_wl5768()
 
   // Query P_S table.
   QUERY_PREPARED_STATEMENTS_INSTANCES_TABLE;
-  
+
   // Deallocate/Close the prepared statement.
   mysql_stmt_close(sp_stmt);
-  
+
   rc= mysql_query(mysql, "DROP PROCEDURE IF EXISTS proc");
   myquery(rc);
- 
+
   rc= mysql_query(mysql, "DROP TABLE IF EXISTS ps_t1");
   myquery(rc);
 }
@@ -19864,285 +19966,1176 @@ static void test_bug17512527()
 }
 
 
+/**
+   BUG#20810928: CANNOT SHUTDOWN MYSQL USING JDBC DRIVER
+*/
+static void test_bug20810928()
+{
+  MYSQL *l_mysql;
+  int rc;
+  uint error_code;
+
+  myheader("test_bug20810928");
+
+  /* initialize the server user */
+  rc= mysql_query(mysql,
+                  "CREATE USER bug20810928@localhost IDENTIFIED BY 'bug20810928'");
+  myquery(rc);
+
+  /* prepare the connection */
+  l_mysql= mysql_client_init(NULL);
+  DIE_UNLESS(l_mysql != NULL);
+
+  l_mysql= mysql_real_connect(l_mysql, opt_host, "bug20810928",
+                              "bug20810928", "test", opt_port,
+                              opt_unix_socket, 0);
+
+  /*
+    Try the 0 length shutdown command.
+    Should fail with the right error code to avoid server restart.
+  */
+  rc= simple_command(l_mysql, COM_SHUTDOWN, NULL, 0, 0);
+  DIE_UNLESS(rc != 0);
+
+  /* check if it's the right error */
+  error_code= mysql_errno(l_mysql);
+  DIE_UNLESS(error_code == ER_SPECIFIC_ACCESS_DENIED_ERROR);
+
+  mysql_close(l_mysql);
+
+  /* clean up the server user */
+  rc= mysql_query(mysql, "DROP USER bug20810928@localhost");
+  myquery(rc);
+}
+
+
+/**
+   WL#8016: Parser for optimizer hints
+*/
+static void test_wl8016()
+{
+  MYSQL_RES *result;
+  int        rc;
+
+  myheader("test_wl8016");
+
+  rc= mysql_query(mysql, "SELECT /*+ ");
+  DIE_UNLESS(rc);
+
+  rc= mysql_query(mysql, "SELECT /*+ ICP(`test");
+  DIE_UNLESS(rc);
+
+  rc= mysql_query(mysql, "SELECT /*+ ICP(`test*/ 1");
+  myquery(rc);
+
+  rc= mysql_query(mysql, "SELECT /*+ ICP(`test*/`*/ 1");
+  DIE_UNLESS(rc);
+
+  /* get the result */
+  result= mysql_store_result(mysql);
+  mytest(result);
+
+  (void) my_process_result_set(result);
+  mysql_free_result(result);
+}
+
+struct execute_test_query
+{
+  const char *create;
+  const char *select;
+  const char *drop;
+};
+
+/**
+  test_bug20645725 helper function
+*/
+static void execute_and_test(struct execute_test_query *query, char quote,
+                             int result, const char* string,
+                             const char* expected, my_bool recursive)
+{
+  MYSQL_STMT *stmt;
+  const char *stmt_text;
+  int rc;
+  MYSQL_BIND my_bind[1];
+  char query_buffer[100];
+  char param_buffer[50];
+  char buff[50];
+  ulong length;
+
+  sprintf(param_buffer, "%c%s%c", quote, string, quote);
+  sprintf(query_buffer, query->create, param_buffer);
+
+  rc = mysql_real_query(mysql, query_buffer, (ulong)strlen(query_buffer));
+  DIE_UNLESS(rc == result);
+  if (result != 0) return;
+  myquery(rc);
+
+  stmt = mysql_stmt_init(mysql);
+
+  memset(my_bind, 0, sizeof(my_bind));
+  my_bind[0].buffer = buff;
+  my_bind[0].length = &length;
+  my_bind[0].buffer_length = (ulong)sizeof(buff);
+  my_bind[0].buffer_type = MYSQL_TYPE_STRING;
+
+  mysql_stmt_bind_param(stmt, my_bind);
+
+  stmt_text = query->select;
+  rc = mysql_stmt_prepare(stmt, stmt_text, (ulong)strlen(stmt_text));
+  check_execute(stmt, rc);
+  rc = mysql_stmt_execute(stmt);
+  check_execute(stmt, rc);
+
+  mysql_stmt_bind_result(stmt, my_bind);
+
+  rc = mysql_stmt_fetch(stmt);
+  DIE_UNLESS(rc == 0);
+  DIE_UNLESS(length == (ulong)strlen(expected));
+  DIE_UNLESS(strcmp(buff, expected) == 0);
+  rc = mysql_stmt_fetch(stmt);
+  DIE_UNLESS(rc == MYSQL_NO_DATA);
+
+  mysql_stmt_close(stmt);
+
+  sprintf(query_buffer, query->drop, param_buffer);
+
+  rc = mysql_real_query(mysql, query_buffer, (ulong)strlen(query_buffer));
+  myquery(rc);
+
+  if (recursive != 0)
+  {
+    length = mysql_real_escape_string_quote(mysql, param_buffer, expected,
+                                            (ulong)strlen(expected), quote);
+    DIE_UNLESS(length != (ulong)-1);
+
+    execute_and_test(query, quote, result, param_buffer, expected, 0);
+  }
+}
+
+/**
+  BUG#20645725 GRAVE ACCENT CHARACTER (`) IS NOT FOLLOWED WITH BACKSLASH
+               WHEN ESCAPING IT
+*/
+static void test_bug20645725()
+{
+  const char *stmt_text;
+  const char *modes[2];
+  struct execute_test_query query;
+  int rc;
+  int i;
+
+  myheader("test_bug20645725");
+
+  stmt_text = "DROP DATABASE IF EXISTS supertest";
+  rc = mysql_real_query(mysql, stmt_text, (ulong)strlen(stmt_text));
+  myquery(rc);
+
+  stmt_text = "CREATE DATABASE supertest";
+  rc = mysql_real_query(mysql, stmt_text, (ulong)strlen(stmt_text));
+  myquery(rc);
+
+  stmt_text = "USE supertest";
+  rc = mysql_real_query(mysql, stmt_text, (ulong)strlen(stmt_text));
+  myquery(rc);
+
+  stmt_text = "DROP TABLE IF EXISTS t1";
+  rc = mysql_real_query(mysql, stmt_text, (ulong)strlen(stmt_text));
+  myquery(rc);
+  stmt_text = "CREATE TABLE t1 (a TEXT)";
+  rc = mysql_real_query(mysql, stmt_text, (ulong)strlen(stmt_text));
+  myquery(rc);
+
+  modes[0]= "SET sql_mode=''";
+  modes[1]= "SET sql_mode='ANSI_QUOTES'";
+
+  query.create= "INSERT INTO t1 VALUES(%s)";
+  query.drop= "DELETE FROM t1; -- %s";
+  query.select= "SELECT a FROM t1";
+
+  for (i = 0; i < (int)(sizeof(modes)/sizeof(modes[0])); i++)
+  {
+    rc = mysql_real_query(mysql, modes[i], (ulong)strlen(modes[i]));
+    myquery(rc);
+
+    execute_and_test(&query, '\'', 0, "aaa",       "aaa",   1);
+    execute_and_test(&query, '\'', 0, "a\\'",      "a'",    1);
+    execute_and_test(&query, '\'', 0, "''",        "'",     1);
+    execute_and_test(&query, '\'', 0, "a''",       "a'",    1);
+    execute_and_test(&query, '\'', 0, "a''b",      "a'b",   1);
+    execute_and_test(&query, '\'', 0, "a\\'''\\'", "a'''",  1);
+    execute_and_test(&query, '\'', 0, "a\\`",      "a`",    1);
+    execute_and_test(&query, '\'', 0, "a\\n",      "a\n",   1);
+    execute_and_test(&query, '\'', 0, "a``",       "a``",   1);
+    execute_and_test(&query, '\'', 0, "a\\``\\`",  "a```",  1);
+    execute_and_test(&query, '\'', 0, "b\"",       "b\"",   1);
+    execute_and_test(&query, '\'', 0, "b\"\"",     "b\"\"", 1);
+    execute_and_test(&query, '\'', 0, "b\"\"",     "b\"\"", 1);
+    execute_and_test(&query, '\'', 0, "b\\$",      "b$",    1);
+    execute_and_test(&query, '\'', 0, "b\\\\\"",   "b\\\"", 1);
+    execute_and_test(&query, '\'', 0, "b\\\"\"",   "b\"\"", 1);
+    execute_and_test(&query, '"',  i, "b\\\"\"\"", "b\"\"", 1);
+    execute_and_test(&query, '"',  i, "d\\'e",     "d'e",   1);
+    execute_and_test(&query, '`',  1, "",          "",      0);
+  }
+
+  modes[0]= "SET sql_mode='NO_BACKSLASH_ESCAPES'";
+  modes[1]= "SET sql_mode='NO_BACKSLASH_ESCAPES,ANSI_QUOTES'";
+
+  for (i = 0; i < (int)(sizeof(modes)/sizeof(modes[0])); i++)
+  {
+    rc = mysql_real_query(mysql, modes[i], (ulong)strlen(modes[i]));
+    myquery(rc);
+
+    execute_and_test(&query, '\'', 0, "aaa",       "aaa",      1);
+    execute_and_test(&query, '\'', 1, "a\\'",      "",         0);
+    execute_and_test(&query, '\'', 0, "''",        "'",        1);
+    execute_and_test(&query, '\'', 0, "a''",       "a'",       1);
+    execute_and_test(&query, '\'', 0, "a''b",      "a'b",      1);
+    execute_and_test(&query, '\'', 1, "a\\'''\\'", "",         0);
+    execute_and_test(&query, '\'', 0, "a\\`",      "a\\`",     1);
+    execute_and_test(&query, '\'', 0, "a\\n",      "a\\n",     1);
+    execute_and_test(&query, '\'', 0, "a``",       "a``",      1);
+    execute_and_test(&query, '\'', 0, "a\\``\\`",  "a\\``\\`", 1);
+    execute_and_test(&query, '\'', 0, "b\"",       "b\"",      1);
+    execute_and_test(&query, '\'', 0, "b\"\"",     "b\"\"",    1);
+    execute_and_test(&query, '\'', 0, "b\\$",      "b\\$",     1);
+    execute_and_test(&query, '\'', 0, "b\\\\\"",   "b\\\\\"",  1);
+    execute_and_test(&query, '\'', 0, "b\\\"\"",   "b\\\"\"",  1);
+    execute_and_test(&query, '"',  1, "b\\\"\"\"", "",         0);
+    execute_and_test(&query, '"',  i, "d\\'e",     "d\\'e",    1);
+    execute_and_test(&query, '`',  1, "",          "",         1);
+  }
+
+  stmt_text = "DROP TABLE t1";
+  rc = mysql_real_query(mysql, stmt_text, (ulong)strlen(stmt_text));
+  myquery(rc);
+
+  stmt_text = "SET sql_mode=''";
+  rc = mysql_real_query(mysql, stmt_text, (ulong)strlen(stmt_text));
+  myquery(rc);
+
+  query.create= "CREATE TABLE %s (a INT)";
+  query.drop= "DROP TABLE %s";
+  query.select= "SHOW TABLES";
+
+  execute_and_test(&query, '`', 0, "ccc",     "ccc",     1);
+  execute_and_test(&query, '`', 0, "c``cc",   "c`cc",    1);
+  execute_and_test(&query, '`', 0, "c'cc",    "c'cc",    1);
+  execute_and_test(&query, '`', 0, "c''cc",   "c''cc",   1);
+  execute_and_test(&query, '`', 1, "c\\`cc",  "",        0);
+  execute_and_test(&query, '`', 0, "c\"cc",   "c\"cc",   1);
+  execute_and_test(&query, '`', 0, "c\\\"cc", "c\\\"cc", 1);
+  execute_and_test(&query, '`', 0, "c\"\"cc", "c\"\"cc", 1);
+
+  stmt_text = "SET sql_mode='ANSI_QUOTES'";
+  rc = mysql_real_query(mysql, stmt_text, (ulong)strlen(stmt_text));
+  myquery(rc);
+
+  execute_and_test(&query, '"', 0, "a\"\"a", "a\"a",   0);
+  execute_and_test(&query, '"', 1, "a\\\"b", "",       0);
+  execute_and_test(&query, '"', 0, "c\\'cc", "c\\'cc", 0);
+
+  modes[0]= "SET sql_mode='NO_BACKSLASH_ESCAPES'";
+  modes[1]= "SET sql_mode='NO_BACKSLASH_ESCAPES,ANSI_QUOTES'";
+
+  for (i = 0; i < (int)(sizeof(modes)/sizeof(modes[0])); i++)
+  {
+    rc = mysql_real_query(mysql, modes[i], (ulong)strlen(modes[i]));
+    myquery(rc);
+
+    execute_and_test(&query, '`', 0, "ccc",     "ccc",     1);
+    execute_and_test(&query, '`', 0, "c``cc",   "c`cc",    1);
+    execute_and_test(&query, '`', 0, "c'cc",    "c'cc",    1);
+    execute_and_test(&query, '`', 0, "c''cc",   "c''cc",   1);
+    execute_and_test(&query, '`', 1, "c\\`cc",  "",        0);
+    execute_and_test(&query, '`', 0, "c\"cc",   "c\"cc",   1);
+    execute_and_test(&query, '`', 0, "c\\\"cc", "c\\\"cc", 1);
+    execute_and_test(&query, '`', 0, "c\"\"cc", "c\"\"cc", 1);
+  }
+
+  stmt_text = "DROP DATABASE supertest";
+  rc = mysql_real_query(mysql, stmt_text, (ulong)strlen(stmt_text));
+  myquery(rc);
+}
+
+
+/**
+  Bug#20444737  STRING::CHOP ASSERTS ON NAUGHTY TABLE NAMES
+*/
+static void test_bug20444737()
+{
+  char query[MAX_TEST_QUERY_LENGTH];
+  FILE       *test_file;
+  char       *master_test_filename;
+  ulong length;
+  int rc;
+  const char *test_dir= getenv("MYSQL_TEST_DIR");
+  const char db_query[]="USE client_test_db";
+
+  myheader("Test_bug20444737");
+
+  if (mysql_get_server_version(mysql) < 50700)
+  {
+    if (!opt_silent)
+      fprintf(stdout, "Skipping test_bug20444737: uses data file present only"
+                      "in MySQL 5.7+\n");
+    return;
+  }
+
+  DIE_UNLESS(test_dir);
+  master_test_filename = (char *) malloc(strlen(test_dir) +
+                         strlen("/std_data/bug20444737.sql") + 1);
+  strxmov(master_test_filename, test_dir, "/std_data/bug20444737.sql", NullS);
+  if (!opt_silent)
+    fprintf(stdout, "Opening '%s'\n", master_test_filename);
+  test_file= my_fopen(master_test_filename, (int)(O_RDONLY | O_BINARY), MYF(0));
+  if (test_file == NULL)
+  {
+    fprintf(stderr, "Error in opening file");
+    free(master_test_filename);
+    DIE("File open error");
+  }
+  else if(fgets(query, MAX_TEST_QUERY_LENGTH, test_file) == NULL)
+  {
+    free(master_test_filename);
+    /* If fgets returned NULL, it indicates either error or EOF */
+    if (feof(test_file))
+      DIE("Found EOF before all statements were found");
+
+    fprintf(stderr, "Got error %d while reading from file\n",
+            ferror(test_file));
+    DIE("Read error");
+  }
+
+  rc= mysql_real_query(mysql, db_query, (ulong)strlen(db_query));
+  myquery(rc);
+  length= (ulong)strlen(query);
+  fprintf(stdout, "Query is %s\n", query);
+  rc= mysql_real_query(mysql, query, (ulong)length);
+  myquery(rc);
+
+  free(master_test_filename);
+  my_fclose(test_file, MYF(0));
+}
+
+
+/**
+  Bug#21104470 WL8132:ASSERTION `! IS_SET()' FAILED.
+*/
+static void test_bug21104470()
+{
+  MYSQL_RES *result;
+  int rc;
+
+  myheader("test_bug21104470");
+
+  rc= mysql_query(mysql, "DROP TABLE IF EXISTS t1");
+  myquery(rc);
+
+  rc= mysql_query(mysql, "CREATE TABLE t1(j1 JSON, j2 JSON NOT NULL)");
+  myquery(rc);
+
+  /* This call used to crash the server. */
+  result= mysql_list_fields(mysql, "t1", NULL);
+  mytest(result);
+
+  rc= my_process_result_set(result);
+  DIE_UNLESS(rc == 0);
+
+  verify_prepare_field(result, 0, "j1", "j1", MYSQL_TYPE_JSON,
+                       "t1", "t1", current_db, UINT_MAX32, 0);
+
+  verify_prepare_field(result, 1, "j2", "j2", MYSQL_TYPE_JSON,
+                       "t1", "t1", current_db, UINT_MAX32, 0);
+
+  mysql_free_result(result);
+  myquery(mysql_query(mysql, "DROP TABLE t1"));
+}
+
+
+/**
+  Bug#21293012 ASSERT `!IS_NULL()' FAILED AT FIELD_JSON::VAL_JSON
+  ON NEW CONN TO DB WITH VIEW
+*/
+static void test_bug21293012()
+{
+  MYSQL_RES *result;
+  int rc;
+
+  myheader("test_bug21293012");
+
+  rc= mysql_query(mysql, "DROP TABLE IF EXISTS t1");
+  myquery(rc);
+
+  rc= mysql_query(mysql, "CREATE TABLE t1(j1 JSON, j2 JSON NOT NULL)");
+  myquery(rc);
+
+  rc= mysql_query(mysql, "CREATE VIEW v1 AS SELECT * FROM t1");
+  myquery(rc);
+
+  /* This call used to crash the server. */
+  result= mysql_list_fields(mysql, "v1", NULL);
+  mytest(result);
+
+  rc= my_process_result_set(result);
+  DIE_UNLESS(rc == 0);
+
+  verify_prepare_field(result, 0, "j1", "j1", MYSQL_TYPE_JSON,
+                       "v1", "v1", current_db, UINT_MAX32, 0);
+
+  verify_prepare_field(result, 1, "j2", "j2", MYSQL_TYPE_JSON,
+                       "v1", "v1", current_db, UINT_MAX32, 0);
+
+  mysql_free_result(result);
+  myquery(mysql_query(mysql, "DROP VIEW v1"));
+  myquery(mysql_query(mysql, "DROP TABLE t1"));
+}
+
+static void test_bug21199582()
+{
+  int rc= 0;
+  int recCnt[]={3,4,1};
+  int i= 0;
+	char query[512]={0};
+	MYSQL_BIND in_param_bind;
+  MYSQL_BIND out_param_bind2;
+  int in_data= 0;
+  char cout_data[100]={0};
+  int rows_number= 0;
+  int num_fields= 0;
+  MYSQL_RES *result = NULL;
+  MYSQL_STMT *stmt;
+  unsigned long cur_type= CURSOR_TYPE_READ_ONLY;
+  int iLoop= 0;
+
+  myheader("test_bug21199582");
+
+  for (; i < 2; ++i)
+  {
+    iLoop= 0;
+
+    myquery(mysql_query(mysql, "drop procedure if exists p3"));
+    myquery(mysql_query(mysql, "drop table if exists abcd"));
+    myquery(mysql_query(mysql, "create table abcd(id int,c char(4))"));
+    myquery(mysql_query(mysql, "insert into abcd values(1,'a'),(2,'b'),(3,'c')"));
+
+    if(i)
+    {
+      sprintf(query,"create procedure p3(INOUT p1 Integer) BEGIN select c from abcd;insert into abcd values(4,'d');"
+      "select id from abcd;SET NAMES 'utf8';set autocommit = ON;SET p1 = 9999;END");
+    }
+    else
+    {
+      sprintf(query,"create procedure p3(INOUT p1 Integer) BEGIN select id from abcd;insert into abcd values(4,'d');"
+      "select id from abcd;SET NAMES 'utf8';set autocommit = ON;SET p1 = 9999;END");
+    }
+
+    rc = mysql_query(mysql, query);
+    DIE_UNLESS(rc == 0);
+
+    stmt= mysql_stmt_init(mysql);
+    DIE_UNLESS(stmt);
+
+    rc = mysql_stmt_attr_set(stmt, STMT_ATTR_CURSOR_TYPE, (void*) &cur_type);
+    DIE_UNLESS(rc == 0);
+
+    sprintf(query,"call p3(?)");
+    rc = mysql_stmt_prepare(stmt, query, strlen(query));
+    DIE_UNLESS(rc == 0);
+
+    memset(&in_param_bind,0,sizeof(in_param_bind));
+    memset(&out_param_bind2,0,sizeof(out_param_bind2));
+    in_data= 0;
+    in_param_bind.buffer_type= MYSQL_TYPE_LONG;
+    in_param_bind.buffer= (char *) &in_data;
+    in_param_bind.length= 0;
+    in_param_bind.is_null= 0;
+
+    out_param_bind2.buffer_type= MYSQL_TYPE_STRING;
+    out_param_bind2.buffer= (char *) cout_data;
+    out_param_bind2.length= 0;
+    out_param_bind2.is_null= 0;
+    out_param_bind2.buffer_length= (ulong)sizeof(cout_data);
+
+    rc= mysql_stmt_bind_param(stmt, &in_param_bind);
+    check_execute(stmt, rc);
+
+    rc= mysql_stmt_execute(stmt);
+    check_execute(stmt, rc);
+
+    rows_number= 0;
+
+    do
+    {
+      num_fields = mysql_stmt_field_count(stmt);
+
+      if(num_fields > 0)
+      {
+        memset(cout_data,0,sizeof(cout_data));
+        result = mysql_stmt_result_metadata(stmt);
+        if(result)
+        {
+          rows_number= mysql_stmt_num_rows(stmt);
+          DIE_UNLESS(rows_number == recCnt[iLoop]);
+
+          rc= mysql_stmt_bind_result(stmt, &out_param_bind2);
+          check_execute(stmt, rc);
+
+          while (!mysql_stmt_fetch(stmt));
+
+          mysql_free_result(result);
+        }
+      }
+      rc= mysql_stmt_next_result(stmt);
+      ++iLoop;
+    }
+    while(rc==0);
+
+    rc= mysql_stmt_free_result(stmt);
+    DIE_UNLESS(rc == 0);
+
+    mysql_stmt_close(stmt);
+  }
+}
+
+
+/**
+  Bug#20821550 ADD MYSQL_GET_PARAMETERS FUNCTIONALITY TO MYSQL_GET_OPTION()
+*/
+static void test_bug20821550()
+{
+  MYSQL *mysql_ptr= NULL;
+  int ret_val;
+  ulong max_allowed_packet_value= 8192*2;
+  ulong net_buffer_length_value= 8192*4;
+  ulong save_max_allowed_packet_value= 0;
+  ulong save_net_buffer_length_value= 0;
+  ulong ret_max_allowed_packet_value= 0;
+  ulong ret_net_buffer_length_value= 0;
+
+  myheader("test_bug20821550");
+
+  /* Try setting/getting values without MYSQL object */
+
+  /* Fetch default values and validate */
+  ret_val= mysql_get_option(mysql_ptr, MYSQL_OPT_MAX_ALLOWED_PACKET,
+                            &save_max_allowed_packet_value);
+  DIE_UNLESS(ret_val == 0);
+  DIE_UNLESS(save_max_allowed_packet_value == 1024L*1024L*1024L);
+
+  ret_val= mysql_get_option(mysql_ptr, MYSQL_OPT_NET_BUFFER_LENGTH,
+                            &save_net_buffer_length_value);
+  DIE_UNLESS(ret_val == 0);
+  DIE_UNLESS(save_net_buffer_length_value == 8192);
+
+  /* Now set global values */
+  ret_val= mysql_options(mysql_ptr, MYSQL_OPT_MAX_ALLOWED_PACKET,
+                         &max_allowed_packet_value);
+  DIE_UNLESS(ret_val == 0);
+
+  ret_val= mysql_options(mysql_ptr, MYSQL_OPT_NET_BUFFER_LENGTH,
+                         &net_buffer_length_value);
+  DIE_UNLESS(ret_val == 0);
+
+  /* Check that global values are set */
+  ret_val= mysql_get_option(mysql_ptr, MYSQL_OPT_MAX_ALLOWED_PACKET,
+                            &ret_max_allowed_packet_value);
+  DIE_UNLESS(ret_val == 0);
+  DIE_UNLESS(ret_max_allowed_packet_value == max_allowed_packet_value);
+
+  ret_val= mysql_get_option(mysql_ptr, MYSQL_OPT_NET_BUFFER_LENGTH,
+                            &ret_net_buffer_length_value);
+  DIE_UNLESS(ret_val == 0);
+  DIE_UNLESS(ret_net_buffer_length_value == net_buffer_length_value);
+
+  /* Restore default values */
+  ret_val= mysql_options(mysql_ptr, MYSQL_OPT_MAX_ALLOWED_PACKET,
+                         &save_max_allowed_packet_value);
+  DIE_UNLESS(ret_val == 0);
+
+  ret_val= mysql_options(mysql_ptr, MYSQL_OPT_NET_BUFFER_LENGTH,
+                         &save_net_buffer_length_value);
+  DIE_UNLESS(ret_val == 0);
+
+  /* Create MYSQL object */
+
+  if (!(mysql_ptr= mysql_client_init(NULL)))
+  {
+    myerror("mysql_client_init() failed");
+    exit(1);
+  }
+
+  /* Now try setting/getting values with MYSQL object */
+
+  mysql_ptr= mysql_real_connect(mysql_ptr, opt_host, opt_user, opt_password,
+                                "test", opt_port, opt_unix_socket, 0);
+
+  /* By default, session values of max_allowed_packet is 0 */
+  ret_val= mysql_get_option(mysql_ptr, MYSQL_OPT_MAX_ALLOWED_PACKET,
+                            &ret_max_allowed_packet_value);
+  DIE_UNLESS(ret_val == 0);
+  DIE_UNLESS(ret_max_allowed_packet_value == 0);
+
+  ret_val= mysql_get_option(mysql_ptr, MYSQL_OPT_NET_BUFFER_LENGTH,
+                            &ret_net_buffer_length_value);
+  DIE_UNLESS(ret_val == 0);
+  DIE_UNLESS(ret_net_buffer_length_value == save_net_buffer_length_value);
+
+  DIE_UNLESS(mysql_ptr->net.max_packet_size == save_max_allowed_packet_value);
+
+  mysql_close(mysql_ptr);
+
+  if (!(mysql_ptr= mysql_client_init(NULL)))
+  {
+    myerror("mysql_client_init() failed");
+    exit(1);
+  }
+
+  /* Set session value for max_allowed_packet */
+  ret_val= mysql_options(mysql_ptr, MYSQL_OPT_MAX_ALLOWED_PACKET,
+                         &max_allowed_packet_value);
+  DIE_UNLESS(ret_val == 0);
+
+  /* net_buffer_length only has global value */
+  ret_val= mysql_options(mysql_ptr, MYSQL_OPT_NET_BUFFER_LENGTH,
+                         &net_buffer_length_value);
+  DIE_UNLESS(ret_val == 0);
+
+  /* Get session value of max_allowed_packet */
+  ret_val= mysql_get_option(mysql_ptr, MYSQL_OPT_MAX_ALLOWED_PACKET,
+                            &ret_max_allowed_packet_value);
+  DIE_UNLESS(ret_val == 0);
+  DIE_UNLESS(ret_max_allowed_packet_value == max_allowed_packet_value);
+
+  ret_val= mysql_get_option(mysql_ptr, MYSQL_OPT_NET_BUFFER_LENGTH,
+                            &ret_net_buffer_length_value);
+  DIE_UNLESS(ret_val == 0);
+  DIE_UNLESS(ret_net_buffer_length_value == net_buffer_length_value);
+
+  /* mysql_real_connect() prefers session value of max_allowed_packet */
+  mysql_ptr= mysql_real_connect(mysql_ptr, opt_host, opt_user, opt_password,
+                                "test", opt_port, opt_unix_socket, 0);
+
+  /* Session value is used for net.max_allowed_size */
+  DIE_UNLESS(mysql_ptr->net.max_packet_size == max_allowed_packet_value);
+
+  /* Get global value of max_allowed_packet */
+  ret_val= mysql_get_option(NULL, MYSQL_OPT_MAX_ALLOWED_PACKET,
+                            &ret_max_allowed_packet_value);
+  DIE_UNLESS(ret_val == 0);
+  DIE_UNLESS(ret_max_allowed_packet_value == save_max_allowed_packet_value);
+
+  mysql_close(mysql_ptr);
+
+}
+
+static void check_warning(MYSQL *conn)
+{
+  MYSQL_RES *result;
+  int        rc;
+
+  rc= mysql_query(conn, "SHOW WARNINGS");
+  myquery(rc);
+  result= mysql_store_result(conn);
+  mytest(result);
+  rc= my_process_result_set(result);
+  DIE_UNLESS(rc == 1);
+  mysql_free_result(result);
+}
+
+static void test_wl8754()
+{
+  MYSQL_RES     *res;
+  MYSQL         *conn;
+  int           rc;
+  unsigned long thread_id;
+  const char    *stmt_text;
+
+  myheader("test_wl8754");
+
+  /* Check that mysql_list_fields reports deprecated warning. */
+  rc= mysql_query(mysql, "DROP TABLE IF EXISTS t1");
+  myquery(rc);
+  stmt_text= "CREATE TABLE t1 (a int, b char(255), c decimal)";
+  rc= mysql_real_query(mysql, stmt_text, (ulong) strlen(stmt_text));
+  myquery(rc);
+
+  res= mysql_list_fields(mysql, "t1", "%");
+  mysql_free_result(res);
+
+  check_warning(mysql);
+
+  stmt_text= "DROP TABLE t1";
+  rc= mysql_real_query(mysql, stmt_text, (ulong) strlen(stmt_text));
+  myquery(rc);
+
+  /* Check that mysql_refresh() reports deprecated warning. */
+  rc= mysql_refresh(mysql, REFRESH_TABLES);
+  myquery(rc);
+
+  check_warning(mysql);
+
+  /* Run a dummy query to clear diagnostics. */
+  rc= mysql_query(mysql, "SELECT 1");
+  myquery(rc);
+  /* Get the result. */
+  res= mysql_store_result(mysql);
+  mytest(res);
+  (void) my_process_result_set(res);
+  mysql_free_result(res);
+
+  /* Check that mysql_list_processes() reports deprecated warning. */
+  res= mysql_list_processes(mysql);
+  mysql_free_result(res);
+
+  check_warning(mysql);
+
+  /* Check that mysql_kill() reports deprecated warning. */
+  if (!(conn= mysql_client_init(NULL)))
+  {
+    myerror("mysql_client_init() failed");
+    exit(1);
+  }
+  conn->reconnect= 1;
+  if (!(mysql_real_connect(conn, opt_host, opt_user,
+                           opt_password, current_db, opt_port,
+                           opt_unix_socket, 0)))
+  {
+    myerror("connection failed");
+    exit(1);
+  }
+  thread_id= mysql_thread_id(conn);
+  /*
+    Kill connection would have killed the existing connection which clears
+    the THD state and reconnects with a new THD thus there will be no
+    warnings.
+  */
+  mysql_kill(conn, (unsigned long) thread_id);
+  mysql_close(conn);
+ }
+
+/*
+  BUG#17883203: MYSQL EMBEDDED MYSQL_STMT_EXECUTE RETURN
+                "MALFORMED COMMUNICATION PACKET" ERROR
+*/
+#define BUG17883203_STRING_SIZE 100
+
+static void test_bug17883203()
+{
+  MYSQL_STMT *stmt;
+  MYSQL_BIND bind;
+  char str_data[BUG17883203_STRING_SIZE];
+  my_bool is_null;
+  my_bool error;
+  unsigned long length;
+  const char stmt_text[] ="SELECT VERSION()";
+  int rc;
+
+  myheader("test_bug17883203");
+
+  stmt = mysql_stmt_init(mysql);
+  check_stmt(stmt);
+  rc= mysql_stmt_prepare(stmt, stmt_text, strlen(stmt_text));
+  check_execute(stmt, rc);
+  rc= mysql_stmt_execute(stmt);
+  check_execute(stmt, rc);
+  memset(&bind, 0, sizeof(bind));
+
+  bind.buffer_type= MYSQL_TYPE_STRING;
+  bind.buffer= (char *)str_data;
+  bind.buffer_length= BUG17883203_STRING_SIZE;
+  bind.is_null= &is_null;
+  bind.length= &length;
+  bind.error= &error;
+
+  rc= mysql_stmt_bind_result(stmt, &bind);
+  check_execute(stmt, rc);
+  rc= mysql_stmt_fetch(stmt);
+  check_execute(stmt, rc);
+
+  if (!opt_silent)
+  {
+    fprintf(stdout, "\n Version: %s", str_data);
+  }
+  mysql_stmt_close(stmt);
+}
+
+/*
+  Bug#22559575: "the statement (1) has no open cursor" pops
+                sometimes with prepared+query_cache
+*/
+static void bug22559575_base(unsigned long type)
+{
+  MYSQL_STMT *stmt;
+  int rc;
+  const char stmt_text[] ="SELECT a FROM t22559575";
+  MYSQL_RES *prepare_meta = NULL;
+  MYSQL_BIND bind[1];
+  short data;
+  unsigned long length;
+
+  stmt = mysql_stmt_init(mysql);
+  check_stmt(stmt);
+  if (type == CURSOR_TYPE_READ_ONLY)
+  {
+    rc = mysql_stmt_attr_set(stmt, STMT_ATTR_CURSOR_TYPE, (const void*)&type);
+    check_execute(stmt, rc);
+  }
+  rc = mysql_stmt_prepare(stmt, stmt_text, strlen(stmt_text));
+  check_execute(stmt, rc);
+  prepare_meta = mysql_stmt_result_metadata(stmt);
+  DIE_UNLESS(prepare_meta != NULL);
+  rc= mysql_stmt_execute(stmt);
+  check_execute(stmt, rc);
+
+  memset(bind, 0, sizeof(bind));
+  bind[0].buffer_type= MYSQL_TYPE_SHORT;
+  bind[0].buffer= (void *)&data;
+  bind[0].length= &length;
+  rc= mysql_stmt_bind_result(stmt, bind);
+  check_execute(stmt, rc);
+
+  rc= mysql_stmt_store_result(stmt);
+  check_execute(stmt, rc);
+
+  rc= mysql_stmt_fetch(stmt);
+  check_execute(stmt, rc);
+  DIE_UNLESS(data == 1);
+
+  mysql_free_result(prepare_meta);
+  rc= mysql_stmt_close(stmt);
+  check_execute(stmt, rc);
+}
+
+static void test_bug22559575()
+{
+  int rc;
+
+  rc= mysql_query(mysql, "CREATE TABLE t22559575(a SMALLINT)");
+  myquery(rc);
+  rc= mysql_query(mysql, "INSERT INTO t22559575 VALUES (1)");
+  myquery(rc);
+
+  /* Should not cache */
+  bug22559575_base(CURSOR_TYPE_READ_ONLY);
+  bug22559575_base(CURSOR_TYPE_READ_ONLY);
+  /* Should save to cache */
+  bug22559575_base(CURSOR_TYPE_NO_CURSOR);
+  /* Should use cache */
+  bug22559575_base(CURSOR_TYPE_NO_CURSOR);
+  /* should not use cache */
+  bug22559575_base(CURSOR_TYPE_READ_ONLY);
+
+  rc= mysql_query(mysql, "DROP TABLE t22559575");
+  myquery(rc);
+}
+
+
+/*
+  Note: the 3-rd and 4-th entry in each record, if not 0, specify the
+  minimum and the maximum server version the given test can be run
+  against. If actual server version does not meet these constranits, test
+  is skipped.
+*/
+
 static struct my_tests_st my_tests[]= {
-  { "disable_query_logs", disable_query_logs },
-  { "test_view_sp_list_fields", test_view_sp_list_fields },
-  { "client_query", client_query },
-  { "test_prepare_insert_update", test_prepare_insert_update},
+  { "disable_query_logs", disable_query_logs, 0, 0 },
+  { "test_view_sp_list_fields", test_view_sp_list_fields, 0, 0 },
+  { "client_query", client_query, 0, 0 },
+  { "test_prepare_insert_update", test_prepare_insert_update, 0, 0},
 #if NOT_YET_WORKING
-  { "test_drop_temp", test_drop_temp },
+  { "test_drop_temp", test_drop_temp, 0, 0 },
 #endif
-  { "test_fetch_seek", test_fetch_seek },
-  { "test_fetch_nobuffs", test_fetch_nobuffs },
-  { "test_open_direct", test_open_direct },
-  { "test_fetch_null", test_fetch_null },
-  { "test_ps_null_param", test_ps_null_param },
-  { "test_fetch_date", test_fetch_date },
-  { "test_fetch_str", test_fetch_str },
-  { "test_fetch_long", test_fetch_long },
-  { "test_fetch_short", test_fetch_short },
-  { "test_fetch_tiny", test_fetch_tiny },
-  { "test_fetch_bigint", test_fetch_bigint },
-  { "test_fetch_float", test_fetch_float },
-  { "test_fetch_double", test_fetch_double },
-  { "test_bind_result_ext", test_bind_result_ext },
-  { "test_bind_result_ext1", test_bind_result_ext1 },
-  { "test_select_direct", test_select_direct },
-  { "test_select_prepare", test_select_prepare },
-  { "test_select", test_select },
-  { "test_select_version", test_select_version },
-  { "test_ps_conj_select", test_ps_conj_select },
-  { "test_select_show_table", test_select_show_table },
-  { "test_func_fields", test_func_fields },
-  { "test_long_data", test_long_data },
-  { "test_insert", test_insert },
-  { "test_set_variable", test_set_variable },
-  { "test_select_show", test_select_show },
-  { "test_prepare_noparam", test_prepare_noparam },
-  { "test_bind_result", test_bind_result },
-  { "test_prepare_simple", test_prepare_simple },
-  { "test_prepare", test_prepare },
-  { "test_null", test_null },
-  { "test_debug_example", test_debug_example },
-  { "test_update", test_update },
-  { "test_simple_update", test_simple_update },
-  { "test_simple_delete", test_simple_delete },
-  { "test_double_compare", test_double_compare },
-  { "client_store_result", client_store_result },
-  { "client_use_result", client_use_result },
-  { "test_tran_bdb", test_tran_bdb },
-  { "test_tran_innodb", test_tran_innodb },
-  { "test_prepare_ext", test_prepare_ext },
-  { "test_prepare_syntax", test_prepare_syntax },
-  { "test_field_names", test_field_names },
-  { "test_field_flags", test_field_flags },
-  { "test_long_data_str", test_long_data_str },
-  { "test_long_data_str1", test_long_data_str1 },
-  { "test_long_data_bin", test_long_data_bin },
-  { "test_warnings", test_warnings },
-  { "test_errors", test_errors },
-  { "test_prepare_resultset", test_prepare_resultset },
-  { "test_stmt_close", test_stmt_close },
-  { "test_prepare_field_result", test_prepare_field_result },
-  { "test_multi_stmt", test_multi_stmt },
-  { "test_multi_statements", test_multi_statements },
-  { "test_prepare_multi_statements", test_prepare_multi_statements },
-  { "test_store_result", test_store_result },
-  { "test_store_result1", test_store_result1 },
-  { "test_store_result2", test_store_result2 },
-  { "test_subselect", test_subselect },
-  { "test_date", test_date },
-  { "test_date_frac", test_date_frac },
-  { "test_temporal_param", test_temporal_param },
-  { "test_date_date", test_date_date },
-  { "test_date_time", test_date_time },
-  { "test_date_ts", test_date_ts },
-  { "test_date_dt", test_date_dt },
-  { "test_prepare_alter", test_prepare_alter },
-  { "test_manual_sample", test_manual_sample },
-  { "test_pure_coverage", test_pure_coverage },
-  { "test_buffers", test_buffers },
-  { "test_ushort_bug", test_ushort_bug },
-  { "test_sshort_bug", test_sshort_bug },
-  { "test_stiny_bug", test_stiny_bug },
-  { "test_field_misc", test_field_misc },
-  { "test_set_option", test_set_option },
+  { "test_fetch_seek", test_fetch_seek, 0, 0 },
+  { "test_fetch_nobuffs", test_fetch_nobuffs, 0, 0 },
+  { "test_open_direct", test_open_direct, 0, 0 },
+  { "test_fetch_null", test_fetch_null, 0, 0 },
+  { "test_ps_null_param", test_ps_null_param, 0, 0 },
+  { "test_fetch_date", test_fetch_date, 0, 0 },
+  { "test_fetch_str", test_fetch_str, 0, 0 },
+  { "test_fetch_long", test_fetch_long, 0, 0 },
+  { "test_fetch_short", test_fetch_short, 0, 0 },
+  { "test_fetch_tiny", test_fetch_tiny, 0, 0 },
+  { "test_fetch_bigint", test_fetch_bigint, 0, 0 },
+  { "test_fetch_float", test_fetch_float, 0, 0 },
+  { "test_fetch_double", test_fetch_double, 0, 0 },
+  { "test_bind_result_ext", test_bind_result_ext, 0, 0 },
+  { "test_bind_result_ext1", test_bind_result_ext1, 0, 0 },
+  { "test_select_direct", test_select_direct, 0, 0 },
+  { "test_select_prepare", test_select_prepare, 0, 0 },
+  { "test_select", test_select, 0, 0 },
+  { "test_select_version", test_select_version, 0, 0 },
+  { "test_ps_conj_select", test_ps_conj_select, 0, 0 },
+  { "test_select_show_table", test_select_show_table, 0, 0 },
+  { "test_func_fields", test_func_fields, 0, 0 },
+  { "test_long_data", test_long_data, 0, 0 },
+  { "test_insert", test_insert, 0, 0 },
+  { "test_set_variable", test_set_variable, 0, 0 },
+  { "test_select_show", test_select_show, 0, 0 },
+  { "test_prepare_noparam", test_prepare_noparam, 0, 0 },
+  { "test_bind_result", test_bind_result, 0, 0 },
+  { "test_prepare_simple", test_prepare_simple, 0, 0 },
+  { "test_prepare", test_prepare, 0, 0 },
+  { "test_null", test_null, 0, 0 },
+  { "test_debug_example", test_debug_example, 0, 0 },
+  { "test_update", test_update, 0, 0 },
+  { "test_simple_update", test_simple_update, 0, 0 },
+  { "test_simple_delete", test_simple_delete, 0, 0 },
+  { "test_double_compare", test_double_compare, 0, 0 },
+  { "client_store_result", client_store_result, 0, 0 },
+  { "client_use_result", client_use_result, 0, 0 },
+  { "test_tran_bdb", test_tran_bdb, 0, 0 },
+  { "test_tran_innodb", test_tran_innodb, 0, 0 },
+  { "test_prepare_ext", test_prepare_ext, 0, 0 },
+  { "test_prepare_syntax", test_prepare_syntax, 0, 0 },
+  { "test_field_names", test_field_names, 0, 0 },
+  { "test_field_flags", test_field_flags, 0, 0 },
+  { "test_long_data_str", test_long_data_str, 0, 0 },
+  { "test_long_data_str1", test_long_data_str1, 0, 0 },
+  { "test_long_data_bin", test_long_data_bin, 0, 0 },
+  { "test_warnings", test_warnings, 0, 0 },
+  { "test_errors", test_errors, 0, 0 },
+  { "test_prepare_resultset", test_prepare_resultset, 0, 0 },
+  { "test_stmt_close", test_stmt_close, 0, 0 },
+  { "test_prepare_field_result", test_prepare_field_result, 0, 0 },
+  { "test_multi_stmt", test_multi_stmt, 0, 0 },
+  { "test_multi_statements", test_multi_statements, 0, 0 },
+  { "test_prepare_multi_statements", test_prepare_multi_statements, 0, 0 },
+  { "test_store_result", test_store_result, 0, 0 },
+  { "test_store_result1", test_store_result1, 0, 0 },
+  { "test_store_result2", test_store_result2, 0, 0 },
+  { "test_subselect", test_subselect, 0, 0 },
+  { "test_date", test_date, 0, 0 },
+  { "test_date_frac", test_date_frac, 0, 0 },
+  { "test_temporal_param", test_temporal_param, 0, 0 },
+  { "test_date_date", test_date_date, 0, 0 },
+  { "test_date_time", test_date_time, 0, 0 },
+  { "test_date_ts", test_date_ts, 0, 0 },
+  { "test_date_dt", test_date_dt, 0, 0 },
+  { "test_prepare_alter", test_prepare_alter, 0, 0 },
+  { "test_manual_sample", test_manual_sample, 0, 0 },
+  { "test_pure_coverage", test_pure_coverage, 0, 0 },
+  { "test_buffers", test_buffers, 0, 0 },
+  { "test_ushort_bug", test_ushort_bug, 0, 0 },
+  { "test_sshort_bug", test_sshort_bug, 0, 0 },
+  { "test_stiny_bug", test_stiny_bug, 0, 0 },
+  { "test_field_misc", test_field_misc, 0, 0 },
+  { "test_set_option", test_set_option, 0, 0 },
 #ifdef EMBEDDED_LIBRARY
-  { "test_embedded_start_stop", test_embedded_start_stop },
+  { "test_embedded_start_stop", test_embedded_start_stop, 0, 0 },
 #endif
 #ifndef EMBEDDED_LIBRARY
-  { "test_prepare_grant", test_prepare_grant },
+  { "test_prepare_grant", test_prepare_grant, 0, 0 },
 #endif
-  { "test_frm_bug", test_frm_bug },
-  { "test_explain_bug", test_explain_bug },
-  { "test_decimal_bug", test_decimal_bug },
-  { "test_nstmts", test_nstmts },
-  { "test_logs;", test_logs },
-  { "test_cuted_rows", test_cuted_rows },
-  { "test_fetch_offset", test_fetch_offset },
-  { "test_fetch_column", test_fetch_column },
-  { "test_mem_overun", test_mem_overun },
-  { "test_list_fields", test_list_fields },
-  { "test_free_result", test_free_result },
-  { "test_free_store_result", test_free_store_result },
-  { "test_sqlmode", test_sqlmode },
-  { "test_ts", test_ts },
-  { "test_bug1115", test_bug1115 },
-  { "test_bug1180", test_bug1180 },
-  { "test_bug1500", test_bug1500 },
-  { "test_bug1644", test_bug1644 },
-  { "test_bug1946", test_bug1946 },
-  { "test_bug2248", test_bug2248 },
-  { "test_parse_error_and_bad_length", test_parse_error_and_bad_length },
-  { "test_bug2247", test_bug2247 },
-  { "test_subqueries", test_subqueries },
-  { "test_bad_union", test_bad_union },
-  { "test_distinct", test_distinct },
-  { "test_subqueries_ref", test_subqueries_ref },
-  { "test_union", test_union },
-  { "test_bug3117", test_bug3117 },
-  { "test_join", test_join },
-  { "test_selecttmp", test_selecttmp },
-  { "test_create_drop", test_create_drop },
-  { "test_rename", test_rename },
-  { "test_do_set", test_do_set },
-  { "test_multi", test_multi },
-  { "test_insert_select", test_insert_select },
-  { "test_bind_nagative", test_bind_nagative },
-  { "test_derived", test_derived },
-  { "test_xjoin", test_xjoin },
-  { "test_bug3035", test_bug3035 },
-  { "test_union2", test_union2 },
-  { "test_bug1664", test_bug1664 },
-  { "test_union_param", test_union_param },
-  { "test_order_param", test_order_param },
-  { "test_ps_i18n", test_ps_i18n },
-  { "test_bug3796", test_bug3796 },
-  { "test_bug4026", test_bug4026 },
-  { "test_bug4079", test_bug4079 },
-  { "test_bug4236", test_bug4236 },
-  { "test_bug4030", test_bug4030 },
-  { "test_bug5126", test_bug5126 },
-  { "test_bug4231", test_bug4231 },
-  { "test_bug5399", test_bug5399 },
-  { "test_bug5194", test_bug5194 },
-  { "test_bug5315", test_bug5315 },
-  { "test_bug6049", test_bug6049 },
-  { "test_bug6058", test_bug6058 },
-  { "test_bug6059", test_bug6059 },
-  { "test_bug6046", test_bug6046 },
-  { "test_bug6081", test_bug6081 },
-  { "test_bug6096", test_bug6096 },
-  { "test_datetime_ranges", test_datetime_ranges },
-  { "test_bug4172", test_bug4172 },
-  { "test_conversion", test_conversion },
-  { "test_rewind", test_rewind },
-  { "test_bug6761", test_bug6761 },
-  { "test_view", test_view },
-  { "test_view_where", test_view_where },
-  { "test_view_2where", test_view_2where },
-  { "test_view_star", test_view_star },
-  { "test_view_insert", test_view_insert },
-  { "test_left_join_view", test_left_join_view },
-  { "test_view_insert_fields", test_view_insert_fields },
-  { "test_basic_cursors", test_basic_cursors },
-  { "test_cursors_with_union", test_cursors_with_union },
-  { "test_cursors_with_procedure", test_cursors_with_procedure },
-  { "test_truncation", test_truncation },
-  { "test_truncation_option", test_truncation_option },
-  { "test_client_character_set", test_client_character_set },
-  { "test_bug8330", test_bug8330 },
-  { "test_bug7990", test_bug7990 },
-  { "test_bug8378", test_bug8378 },
-  { "test_bug8722", test_bug8722 },
-  { "test_bug8880", test_bug8880 },
-  { "test_bug9159", test_bug9159 },
-  { "test_bug9520", test_bug9520 },
-  { "test_bug9478", test_bug9478 },
-  { "test_bug9643", test_bug9643 },
-  { "test_bug10729", test_bug10729 },
-  { "test_bug11111", test_bug11111 },
-  { "test_bug9992", test_bug9992 },
-  { "test_bug10736", test_bug10736 },
-  { "test_bug10794", test_bug10794 },
-  { "test_bug11172", test_bug11172 },
-  { "test_bug11656", test_bug11656 },
-  { "test_bug10214", test_bug10214 },
-  { "test_bug9735", test_bug9735 },
-  { "test_bug11183", test_bug11183 },
-  { "test_bug11037", test_bug11037 },
-  { "test_bug10760", test_bug10760 },
-  { "test_bug12001", test_bug12001 },
-  { "test_bug11718", test_bug11718 },
-  { "test_bug12925", test_bug12925 },
-  { "test_bug11909", test_bug11909 },
-  { "test_bug11901", test_bug11901 },
-  { "test_bug11904", test_bug11904 },
-  { "test_bug12243", test_bug12243 },
-  { "test_bug14210", test_bug14210 },
-  { "test_bug13488", test_bug13488 },
-  { "test_bug13524", test_bug13524 },
-  { "test_bug14845", test_bug14845 },
-  { "test_opt_reconnect", test_opt_reconnect },
-  { "test_bug15510", test_bug15510},
+  { "test_frm_bug", test_frm_bug, 0, 0 },
+  { "test_explain_bug", test_explain_bug, 0, 0 },
+  { "test_decimal_bug", test_decimal_bug, 0, 0 },
+  { "test_nstmts", test_nstmts, 0, 0 },
+  { "test_logs;", test_logs, 0, 0 },
+  { "test_cuted_rows", test_cuted_rows, 0, 0 },
+  { "test_fetch_offset", test_fetch_offset, 0, 0 },
+  { "test_fetch_column", test_fetch_column, 0, 0 },
+  { "test_mem_overun", test_mem_overun, 0, 0 },
+  { "test_list_fields", test_list_fields, 0, 0 },
+  { "test_free_result", test_free_result, 0, 0 },
+  { "test_free_store_result", test_free_store_result, 0, 0 },
+  { "test_sqlmode", test_sqlmode, 0, 0 },
+  { "test_ts", test_ts, 0, 0 },
+  { "test_bug1115", test_bug1115, 0, 0 },
+  { "test_bug1180", test_bug1180, 0, 0 },
+  { "test_bug1500", test_bug1500, 0, 0 },
+  { "test_bug1644", test_bug1644, 0, 0 },
+  { "test_bug1946", test_bug1946, 0, 0 },
+  { "test_bug2248", test_bug2248, 0, 0 },
+  { "test_parse_error_and_bad_length", test_parse_error_and_bad_length, 0, 0 },
+  { "test_bug2247", test_bug2247, 0, 0 },
+  { "test_subqueries", test_subqueries, 0, 0 },
+  { "test_bad_union", test_bad_union, 0, 0 },
+  { "test_distinct", test_distinct, 0, 0 },
+  { "test_subqueries_ref", test_subqueries_ref, 0, 0 },
+  { "test_union", test_union, 0, 0 },
+  { "test_bug3117", test_bug3117, 0, 0 },
+  { "test_join", test_join, 0, 0 },
+  { "test_selecttmp", test_selecttmp, 0, 0 },
+  { "test_create_drop", test_create_drop, 0, 0 },
+  { "test_rename", test_rename, 0, 0 },
+  { "test_do_set", test_do_set, 0, 0 },
+  { "test_multi", test_multi, 0, 0 },
+  { "test_insert_select", test_insert_select, 0, 0 },
+  { "test_bind_nagative", test_bind_nagative, 0, 0 },
+  { "test_derived", test_derived, 0, 0 },
+  { "test_xjoin", test_xjoin, 0, 0 },
+  { "test_bug3035", test_bug3035, 0, 0 },
+  { "test_union2", test_union2, 0, 0 },
+  { "test_bug1664", test_bug1664, 0, 0 },
+  { "test_union_param", test_union_param, 0, 0 },
+  { "test_order_param", test_order_param, 0, 0 },
+  { "test_ps_i18n", test_ps_i18n, 0, 0 },
+  { "test_bug3796", test_bug3796, 0, 0 },
+  { "test_bug4026", test_bug4026, 0, 0 },
+  { "test_bug4079", test_bug4079, 0, 0 },
+  { "test_bug4236", test_bug4236, 0, 0 },
+  { "test_bug4030", test_bug4030, 0, 0 },
+  { "test_bug5126", test_bug5126, 0, 0 },
+  { "test_bug4231", test_bug4231, 0, 0 },
+  { "test_bug5399", test_bug5399, 0, 0 },
+  { "test_bug5194", test_bug5194, 0, 0 },
+  { "test_bug5315", test_bug5315, 0, 0 },
+  { "test_bug6049", test_bug6049, 0, 0 },
+  { "test_bug6058", test_bug6058, 0, 0 },
+  { "test_bug6059", test_bug6059, 0, 0 },
+  { "test_bug6046", test_bug6046, 0, 0 },
+  { "test_bug6081", test_bug6081, 0, 0 },
+  { "test_bug6096", test_bug6096, 0, 0 },
+  { "test_datetime_ranges", test_datetime_ranges, 0, 0 },
+  { "test_bug4172", test_bug4172, 0, 0 },
+  { "test_conversion", test_conversion, 0, 0 },
+  { "test_rewind", test_rewind, 0, 0 },
+  { "test_bug6761", test_bug6761, 0, 0 },
+  { "test_view", test_view, 0, 0 },
+  { "test_view_where", test_view_where, 0, 0 },
+  { "test_view_2where", test_view_2where, 0, 0 },
+  { "test_view_star", test_view_star, 0, 0 },
+  { "test_view_insert", test_view_insert, 0, 0 },
+  { "test_left_join_view", test_left_join_view, 0, 0 },
+  { "test_view_insert_fields", test_view_insert_fields, 0, 0 },
+  { "test_basic_cursors", test_basic_cursors, 0, 0 },
+  { "test_cursors_with_union", test_cursors_with_union, 0, 0 },
+  { "test_cursors_with_procedure", test_cursors_with_procedure, 0, 0 },
+  { "test_truncation", test_truncation, 0, 0 },
+  { "test_truncation_option", test_truncation_option, 0, 0 },
+  { "test_client_character_set", test_client_character_set, 0, 0 },
+  { "test_bug8330", test_bug8330, 0, 0 },
+  { "test_bug7990", test_bug7990, 0, 0 },
+  { "test_bug8378", test_bug8378, 0, 0 },
+  { "test_bug8722", test_bug8722, 0, 0 },
+  { "test_bug8880", test_bug8880, 0, 0 },
+  { "test_bug9159", test_bug9159, 0, 0 },
+  { "test_bug9520", test_bug9520, 0, 0 },
+  { "test_bug9478", test_bug9478, 0, 0 },
+  { "test_bug9643", test_bug9643, 0, 0 },
+  { "test_bug10729", test_bug10729, 0, 0 },
+  { "test_bug11111", test_bug11111, 0, 0 },
+  { "test_bug9992", test_bug9992, 0, 0 },
+  { "test_bug10736", test_bug10736, 0, 0 },
+  { "test_bug10794", test_bug10794, 0, 0 },
+  { "test_bug11172", test_bug11172, 0, 0 },
+  { "test_bug11656", test_bug11656, 0, 0 },
+  { "test_bug10214", test_bug10214, 0, 0 },
+  { "test_bug21246", test_bug21246, 0, 0 },
+  { "test_bug9735", test_bug9735, 0, 0 },
+  { "test_bug11183", test_bug11183, 0, 0 },
+  { "test_bug11037", test_bug11037, 0, 0 },
+  { "test_bug10760", test_bug10760, 0, 0 },
+  { "test_bug12001", test_bug12001, 0, 0 },
+  { "test_bug11718", test_bug11718, 0, 0 },
+  { "test_bug12925", test_bug12925, 0, 0 },
+  { "test_bug11909", test_bug11909, 0, 0 },
+  { "test_bug11901", test_bug11901, 0, 0 },
+  { "test_bug11904", test_bug11904, 0, 0 },
+  { "test_bug12243", test_bug12243, 0, 0 },
+  { "test_bug14210", test_bug14210, 0, 0 },
+  { "test_bug13488", test_bug13488, 0, 0 },
+  { "test_bug13524", test_bug13524, 0, 0 },
+  { "test_bug14845", test_bug14845, 0, 0 },
+  { "test_opt_reconnect", test_opt_reconnect, 0, 0 },
+  { "test_bug15510", test_bug15510, 0, 0 },
 #ifndef EMBEDDED_LIBRARY
-  { "test_bug12744", test_bug12744 },
+  { "test_bug12744", test_bug12744, 0, 0 },
 #endif
-  { "test_bug16143", test_bug16143 },
-  { "test_bug16144", test_bug16144 },
-  { "test_bug15613", test_bug15613 },
-  { "test_bug20152", test_bug20152 },
-  { "test_bug14169", test_bug14169 },
-  { "test_bug17667", test_bug17667 },
-  { "test_bug15752", test_bug15752 },
-  { "test_mysql_insert_id", test_mysql_insert_id },
-  { "test_bug19671", test_bug19671 },
-  { "test_bug21206", test_bug21206 },
-  { "test_bug21726", test_bug21726 },
-  { "test_bug15518", test_bug15518 },
-  { "test_bug23383", test_bug23383 },
-  { "test_bug32265", test_bug32265 },
-  { "test_bug21635", test_bug21635 },
-  { "test_status",   test_status   },
-  { "test_bug24179", test_bug24179 },
-  { "test_ps_query_cache", test_ps_query_cache },
-  { "test_bug28075", test_bug28075 },
-  { "test_bug27876", test_bug27876 },
-  { "test_bug28505", test_bug28505 },
-  { "test_bug28934", test_bug28934 },
-  { "test_bug27592", test_bug27592 },
-  { "test_bug29687", test_bug29687 },
-  { "test_bug29692", test_bug29692 },
-  { "test_bug29306", test_bug29306 },
-  { "test_change_user", test_change_user },
-  { "test_bug30472", test_bug30472 },
-  { "test_bug20023", test_bug20023 },
-  { "test_bug45010", test_bug45010 },
-  { "test_bug53371", test_bug53371 },
-  { "test_bug31418", test_bug31418 },
-  { "test_bug31669", test_bug31669 },
-  { "test_bug28386", test_bug28386 },
-  { "test_wl4166_1", test_wl4166_1 },
-  { "test_wl4166_2", test_wl4166_2 },
-  { "test_wl4166_3", test_wl4166_3 },
-  { "test_wl4166_4", test_wl4166_4 },
-  { "test_bug36004", test_bug36004 },
-  { "test_wl4284_1", test_wl4284_1 },
-  { "test_wl4435",   test_wl4435 },
-  { "test_wl4435_2", test_wl4435_2 },
-  { "test_wl4435_3", test_wl4435_3 },
-  { "test_bug38486", test_bug38486 },
-  { "test_bug33831", test_bug33831 },
-  { "test_bug40365", test_bug40365 },
-  { "test_bug43560", test_bug43560 },
-  { "test_bug36326", test_bug36326 },
-  { "test_bug41078", test_bug41078 },
-  { "test_bug44495", test_bug44495 },
-  { "test_bug49972", test_bug49972 },
-  { "test_bug42373", test_bug42373 },
-  { "test_bug54041", test_bug54041 },
-  { "test_bug47485", test_bug47485 },
-  { "test_bug58036", test_bug58036 },
-  { "test_bug57058", test_bug57058 },
-  { "test_bug56976", test_bug56976 },
-  { "test_bug11766854", test_bug11766854 },
-  { "test_bug54790", test_bug54790 },
-  { "test_bug12337762", test_bug12337762 },
-  { "test_bug11754979", test_bug11754979 },
-  { "test_bug13001491", test_bug13001491 },
-  { "test_wl5968", test_wl5968 },
-  { "test_wl5924", test_wl5924 },
-  { "test_wl6587", test_wl6587 },
-  { "test_wl5928", test_wl5928 },
-  { "test_wl6797", test_wl6797 },
-  { "test_wl6791", test_wl6791 },
-  { "test_wl5768", test_wl5768 },
+  { "test_bug16143", test_bug16143, 0, 0 },
+  { "test_bug16144", test_bug16144, 0, 0 },
+  { "test_bug15613", test_bug15613, 0, 0 },
+  { "test_bug20152", test_bug20152, 0, 0 },
+  { "test_bug14169", test_bug14169, 0, 0 },
+  { "test_bug17667", test_bug17667, 0, 0 },
+  { "test_bug15752", test_bug15752, 0, 0 },
+  { "test_mysql_insert_id", test_mysql_insert_id, 0, 0 },
+  { "test_bug19671", test_bug19671, 0, 0 },
+  { "test_bug21206", test_bug21206, 0, 0 },
+  { "test_bug21726", test_bug21726, 0, 0 },
+  { "test_bug15518", test_bug15518, 0, 0 },
+  { "test_bug23383", test_bug23383, 0, 0 },
+  { "test_bug32265", test_bug32265, 0, 0 },
+  { "test_bug21635", test_bug21635, 0, 0 },
+  { "test_status",   test_status  , 0, 0 },
+  { "test_bug24179", test_bug24179, 0, 0 },
+#ifdef DISABLED_TESTS
+  { "test_ps_query_cache", test_ps_query_cache, 0, 0 },
+#endif
+  { "test_bug28075", test_bug28075, 0, 0 },
+  { "test_bug27876", test_bug27876, 0, 0 },
+  { "test_bug28505", test_bug28505, 0, 0 },
+  { "test_bug28934", test_bug28934, 0, 0 },
+  { "test_bug27592", test_bug27592, 0, 0 },
+  { "test_bug29687", test_bug29687, 0, 0 },
+  { "test_bug29692", test_bug29692, 0, 0 },
+  { "test_bug29306", test_bug29306, 0, 0 },
+  { "test_change_user", test_change_user, 0, 0 },
+  { "test_bug30472", test_bug30472, 0, 0 },
+  { "test_bug20023", test_bug20023, 0, 0 },
+  { "test_bug45010", test_bug45010, 0, 0 },
+  { "test_bug53371", test_bug53371, 0, 0 },
+  { "test_bug31418", test_bug31418, 0, 0 },
+  { "test_bug31669", test_bug31669, 0, 0 },
+  { "test_bug28386", test_bug28386, 0, 0 },
+  { "test_wl4166_1", test_wl4166_1, 0, 0 },
+  { "test_wl4166_2", test_wl4166_2, 0, 0 },
+  { "test_wl4166_3", test_wl4166_3, 0, 0 },
+  { "test_wl4166_4", test_wl4166_4, 0, 0 },
+  { "test_bug36004", test_bug36004, 0, 0 },
+  { "test_wl4284_1", test_wl4284_1, 0, 0 },
+  { "test_wl4435",   test_wl4435, 0, 0 },
+  { "test_wl4435_2", test_wl4435_2, 0, 0 },
+  { "test_wl4435_3", test_wl4435_3, 0, 0 },
+  { "test_bug38486", test_bug38486, 0, 0 },
+  { "test_bug33831", test_bug33831, 0, 0 },
+  { "test_bug40365", test_bug40365, 0, 0 },
+  { "test_bug43560", test_bug43560, 0, 0 },
+#ifdef DISABLED_TESTS
+  { "test_bug36326", test_bug36326, 0, 0 },
+#endif
+  { "test_bug41078", test_bug41078, 0, 0 },
+  { "test_bug44495", test_bug44495, 0, 0 },
+  { "test_bug49972", test_bug49972, 0, 0 },
+  { "test_bug42373", test_bug42373, 0, 0 },
+  { "test_bug54041", test_bug54041, 0, 0 },
+  { "test_bug47485", test_bug47485, 0, 0 },
+  { "test_bug58036", test_bug58036, 0, 0 },
+  { "test_bug57058", test_bug57058, 0, 0 },
+  { "test_bug56976", test_bug56976, 0, 0 },
+  { "test_bug11766854", test_bug11766854, 0, 0 },
+  { "test_bug54790", test_bug54790, 0, 0 },
+  { "test_bug12337762", test_bug12337762, 0, 0 },
+  { "test_bug11754979", test_bug11754979, 0, 0 },
+  { "test_bug13001491", test_bug13001491, 0, 0 },
+  { "test_wl5968", test_wl5968, 0, 0 },
+  { "test_wl5924", test_wl5924, 0, 0 },
+  { "test_wl6587", test_wl6587, 0, 0 },
+  { "test_wl5928", test_wl5928, 50702, 0 },
+  { "test_wl6797", test_wl6797, 50703, 0 },
+  { "test_wl6791", test_wl6791, 0, 0 },
+  { "test_wl5768", test_wl5768, 50704, 0 },
 #ifndef EMBEDDED_LIBRARY
-  { "test_bug17309863", test_bug17309863},
+  { "test_bug17309863", test_bug17309863, 0, 0},
 #endif
-  { "test_bug17512527", test_bug17512527},
-  { 0, 0 }
+  { "test_bug17512527", test_bug17512527, 0, 0 },
+  { "test_bug20810928", test_bug20810928, 0, 0 },
+  { "test_wl8016", test_wl8016, 0, 0 },
+  { "test_bug20645725", test_bug20645725, 0, 0 },
+  { "test_bug20444737", test_bug20444737, 50700, 0 },
+  { "test_bug21104470", test_bug21104470, 50700, 0 },
+  { "test_bug21293012", test_bug21293012, 50700, 0 },
+  { "test_bug21199582", test_bug21199582, 0, 0 },
+  { "test_bug20821550", test_bug20821550, 0, 0 },
+  { "test_wl8754", test_wl8754, 50711, 0 },
+  { "test_bug17883203", test_bug17883203, 0, 0 },
+  { "test_bug22559575", test_bug22559575, 0, 0 },
+  { 0, 0, 0, 0 }
 };
 
 
-static struct my_tests_st *get_my_tests() { return my_tests; }
+static struct my_tests_st *get_my_tests()
+{
+  return my_tests;
+}

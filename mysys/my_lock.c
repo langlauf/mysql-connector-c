@@ -1,4 +1,4 @@
-/* Copyright (c) 2000, 2014, Oracle and/or its affiliates. All rights reserved.
+/* Copyright (c) 2000, 2016, Oracle and/or its affiliates. All rights reserved.
 
    This program is free software; you can redistribute it and/or modify
    it under the terms of the GNU General Public License as published by
@@ -14,8 +14,11 @@
    Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301  USA */
 
 #include "mysys_priv.h"
+#include "my_sys.h"
 #include "mysys_err.h"
 #include <errno.h>
+#include "my_thread_local.h"
+
 
 #ifndef _WIN32
 #include <signal.h>
@@ -23,7 +26,7 @@
 static int volatile my_have_got_alarm= 0;
 static uint my_time_to_wait_for_lock= 2; /* In seconds */
 
-void my_set_alarm_variable(int signo __attribute__((unused)))
+void my_set_alarm_variable(int signo MY_ATTRIBUTE((unused)))
 {
   my_have_got_alarm= 1;			/* Tell program that time expired */
 }
@@ -201,18 +204,18 @@ int my_lock(File fd, int locktype, my_off_t start, my_off_t length,
 #endif /* _WIN32 */
 
   /* We got an error. We don't want EACCES errors */
-  my_errno=(errno == EACCES) ? EAGAIN : errno ? errno : -1;
+  set_my_errno((errno == EACCES) ? EAGAIN : errno ? errno : -1);
 
   if (MyFlags & MY_WME)
   {
     char errbuf[MYSYS_STRERROR_SIZE];
     if (locktype == F_UNLCK)
       my_error(EE_CANTUNLOCK, MYF(0),
-               my_errno, my_strerror(errbuf, sizeof(errbuf), my_errno));
+               my_errno(), my_strerror(errbuf, sizeof(errbuf), my_errno()));
     else
       my_error(EE_CANTLOCK, MYF(0),
-               my_errno, my_strerror(errbuf, sizeof(errbuf), my_errno));
+               my_errno(), my_strerror(errbuf, sizeof(errbuf), my_errno()));
   }
-  DBUG_PRINT("error",("my_errno: %d (%d)",my_errno,errno));
+  DBUG_PRINT("error",("my_errno: %d (%d)",my_errno(),errno));
   DBUG_RETURN(-1);
 } /* my_lock */

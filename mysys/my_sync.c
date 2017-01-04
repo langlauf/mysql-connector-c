@@ -1,4 +1,4 @@
-/* Copyright (c) 2003, 2014, Oracle and/or its affiliates. All rights reserved.
+/* Copyright (c) 2003, 2016, Oracle and/or its affiliates. All rights reserved.
 
    This program is free software; you can redistribute it and/or modify
    it under the terms of the GNU General Public License as published by
@@ -14,8 +14,10 @@
    Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301  USA */
 
 #include "mysys_priv.h"
+#include "my_sys.h"
 #include "mysys_err.h"
 #include <errno.h>
+#include "my_thread_local.h"
 
 static void (*before_sync_wait)(void)= 0;
 static void (*after_sync_wait)(void)= 0;
@@ -85,8 +87,9 @@ int my_sync(File fd, myf my_flags)
   if (res)
   {
     int er= errno;
-    if (!(my_errno= er))
-      my_errno= -1;                             /* Unknown error */
+    set_my_errno(er);
+    if (!er)
+      set_my_errno(-1);                             /* Unknown error */
     if (after_sync_wait)
       (*after_sync_wait)();
     if ((my_flags & MY_IGNORE_BADFD) &&
@@ -103,7 +106,7 @@ int my_sync(File fd, myf my_flags)
     {
       char errbuf[MYSYS_STRERROR_SIZE];
       my_error(EE_SYNC, MYF(0), my_filename(fd),
-               my_errno, my_strerror(errbuf, sizeof(errbuf), my_errno));
+               my_errno(), my_strerror(errbuf, sizeof(errbuf), my_errno()));
     }
   }
   else
@@ -131,8 +134,8 @@ int my_sync(File fd, myf my_flags)
 static const char cur_dir_name[]= {FN_CURLIB, 0};
 #endif
 
-int my_sync_dir(const char *dir_name __attribute__((unused)),
-                myf my_flags __attribute__((unused)))
+int my_sync_dir(const char *dir_name MY_ATTRIBUTE((unused)),
+                myf my_flags MY_ATTRIBUTE((unused)))
 {
 /*
   Only Linux is known to need an explicit sync of the directory to make sure a
@@ -178,8 +181,8 @@ int my_sync_dir(const char *dir_name __attribute__((unused)),
     0 if ok, !=0 if error
 */
 
-int my_sync_dir_by_file(const char *file_name __attribute__((unused)),
-                        myf my_flags __attribute__((unused)))
+int my_sync_dir_by_file(const char *file_name MY_ATTRIBUTE((unused)),
+                        myf my_flags MY_ATTRIBUTE((unused)))
 {
 #ifdef __linux__
   char dir_name[FN_REFLEN];

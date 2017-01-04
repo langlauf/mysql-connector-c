@@ -1,4 +1,4 @@
-/* Copyright (c) 2000, 2013, Oracle and/or its affiliates. All rights reserved.
+/* Copyright (c) 2000, 2015, Oracle and/or its affiliates. All rights reserved.
 
    This program is free software; you can redistribute it and/or modify
    it under the terms of the GNU General Public License as published by
@@ -16,8 +16,10 @@
 /* my_setwd() and my_getwd() works with intern_filenames !! */
 
 #include "mysys_priv.h"
+#include "my_sys.h"
 #include <m_string.h>
 #include "mysys_err.h"
+#include "my_thread_local.h"
 #if defined(_WIN32)
 #include <m_ctype.h>
 #include <dos.h>
@@ -59,7 +61,7 @@ int my_getwd(char * buf, size_t size, myf MyFlags)
     if (!getcwd(buf,(uint) (size-2)) && MyFlags & MY_WME)
     {
       char errbuf[MYSYS_STRERROR_SIZE];
-      my_errno=errno;
+      set_my_errno(errno);
       my_error(EE_GETWD, MYF(0),
                errno, my_strerror(errbuf, sizeof(errbuf), errno));
       DBUG_RETURN(-1);
@@ -90,7 +92,7 @@ int my_setwd(const char *dir, myf MyFlags)
     dir=FN_ROOTDIR;
   if ((res=chdir((char*) dir)) != 0)
   {
-    my_errno=errno;
+    set_my_errno(errno);
     if (MyFlags & MY_WME)
     {
       char errbuf[MYSYS_STRERROR_SIZE];

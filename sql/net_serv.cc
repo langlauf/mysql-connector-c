@@ -1,4 +1,4 @@
-/* Copyright (c) 2000, 2014, Oracle and/or its affiliates. All rights reserved.
+/* Copyright (c) 2000, 2016, Oracle and/or its affiliates. All rights reserved.
 
    This program is free software; you can redistribute it and/or modify
    it under the terms of the GNU General Public License as published by
@@ -71,7 +71,7 @@ PSI_memory_key key_memory_NET_compress_packet;
 #ifdef MYSQL_SERVER
 /*
   The following variables/functions should really not be declared
-  extern, but as it's hard to include sql_priv.h here, we have to
+  extern, but as it's hard to include sql_class.h here, we have to
   live with this for a while.
 */
 extern void query_cache_insert(const char *packet, ulong length,
@@ -130,6 +130,10 @@ void net_end(NET *net)
   DBUG_VOID_RETURN;
 }
 
+void net_claim_memory_ownership(NET *net)
+{
+  my_claim(net->buff);
+}
 
 /** Realloc the packet buffer. */
 
@@ -187,7 +191,7 @@ my_bool net_realloc(NET *net, size_t length)
 */
 
 void net_clear(NET *net,
-               my_bool check_buffer __attribute__((unused)))
+               my_bool check_buffer MY_ATTRIBUTE((unused)))
 {
   DBUG_ENTER("net_clear");
 
@@ -234,17 +238,24 @@ my_bool net_flush(NET *net)
 */
 
 static my_bool
-net_should_retry(NET *net, uint *retry_count __attribute__((unused)))
+net_should_retry(NET *net, uint *retry_count MY_ATTRIBUTE((unused)))
 {
   my_bool retry;
 
+#ifndef MYSQL_SERVER
   /*
-    In the non-thread safe client library, or in the server,
-    interrupted I/O operations are retried up to a limit.
+    In the  client library, interrupted I/O operations are always retried.
+    Otherwise, it's either a timeout or an unrecoverable error.
+  */
+  retry= vio_should_retry(net->vio);
+#else
+  /*
+    In the server, interrupted I/O operations are retried up to a limit.
     In this scenario, pthread_kill can be used to wake up
     (interrupt) threads waiting for I/O.
   */
   retry= vio_should_retry(net->vio) && ((*retry_count)++ < net->retry_count);
+#endif
 
   return retry;
 }

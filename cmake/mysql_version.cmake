@@ -1,5 +1,5 @@
 # Copyright (c) 2009, 2014, Oracle and/or its affiliates. All rights reserved.
-# 
+#
 # This program is free software; you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
 # the Free Software Foundation; version 2 of the License.
@@ -11,14 +11,14 @@
 #
 # You should have received a copy of the GNU General Public License
 # along with this program; if not, write to the Free Software
-# Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA 
+# Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
 
 #
 # Global constants, only to be changed between major releases.
 #
 
 SET(SHARED_LIB_MAJOR_VERSION "18")
-SET(SHARED_LIB_MINOR_VERSION "3")
+SET(SHARED_LIB_MINOR_VERSION "4")
 SET(PROTOCOL_VERSION "10")
 SET(DOT_FRM_VERSION "6")
 
@@ -149,15 +149,15 @@ ENDIF()
 # for more info.
 IF(MSVC)
     GET_FILENAME_COMPONENT(MYSQL_CMAKE_SCRIPT_DIR ${CMAKE_CURRENT_LIST_FILE} PATH)
-	
+
     SET(FILETYPE VFT_APP)
-    CONFIGURE_FILE(${MYSQL_CMAKE_SCRIPT_DIR}/versioninfo.rc.in 
+    CONFIGURE_FILE(${MYSQL_CMAKE_SCRIPT_DIR}/versioninfo.rc.in
     ${CMAKE_BINARY_DIR}/versioninfo_exe.rc)
 
     SET(FILETYPE VFT_DLL)
-    CONFIGURE_FILE(${MYSQL_CMAKE_SCRIPT_DIR}/versioninfo.rc.in  
+    CONFIGURE_FILE(${MYSQL_CMAKE_SCRIPT_DIR}/versioninfo.rc.in
       ${CMAKE_BINARY_DIR}/versioninfo_dll.rc)
-	  
+
   FUNCTION(ADD_VERSION_INFO target target_type sources_var)
     IF("${target_type}" MATCHES "SHARED" OR "${target_type}" MATCHES "MODULE")
       SET(rcfile ${CMAKE_BINARY_DIR}/versioninfo_dll.rc)

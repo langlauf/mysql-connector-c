@@ -1,4 +1,4 @@
-/* Copyright (c) 2000, 2014, Oracle and/or its affiliates. All rights reserved.
+/* Copyright (c) 2000, 2016, Oracle and/or its affiliates. All rights reserved.
 
    This program is free software; you can redistribute it and/or modify
    it under the terms of the GNU General Public License as published by
@@ -16,10 +16,12 @@
 
 /* TODO: check for overun of memory for names. */
 
-#include	"mysys_priv.h"
-#include	<m_string.h>
-#include	<my_dir.h>	/* Structs used by my_dir,includes sys/types */
-#include	"mysys_err.h"
+#include "mysys_priv.h"
+#include "my_sys.h"
+#include "m_string.h"
+#include "my_dir.h"	/* Structs used by my_dir,includes sys/types */
+#include "mysys_err.h"
+#include "my_thread_local.h"
 #if defined(HAVE_DIRENT_H)
 # include <dirent.h>
 # define NAMLEN(dirent) strlen((dirent)->d_name)
@@ -104,7 +106,9 @@ MY_DIR	*my_dir(const char *path, myf MyFlags)
   names_storage= (MEM_ROOT*)(buffer + ALIGN_SIZE(sizeof(MY_DIR)) +
                              ALIGN_SIZE(sizeof(DYNAMIC_ARRAY)));
   
-  if (my_init_dynamic_array(dir_entries_storage, sizeof(FILEINFO),
+  if (my_init_dynamic_array(dir_entries_storage,
+                            key_memory_MY_DIR,
+                            sizeof(FILEINFO),
                             NULL,               /* init_buffer */
                             ENTRIES_START_SIZE, ENTRIES_INCREMENT))
   {
@@ -160,7 +164,7 @@ MY_DIR	*my_dir(const char *path, myf MyFlags)
 #if !defined(HAVE_READDIR_R)
   mysql_mutex_unlock(&THR_LOCK_open);
 #endif
-  my_errno=errno;
+  set_my_errno(errno);
   if (dirp)
     (void) closedir(dirp);
   my_dirend(result);
@@ -168,7 +172,7 @@ MY_DIR	*my_dir(const char *path, myf MyFlags)
   {
     char errbuf[MYSYS_STRERROR_SIZE];
     my_error(EE_DIR, MYF(0), path,
-             my_errno, my_strerror(errbuf, sizeof(errbuf), my_errno));
+             my_errno(), my_strerror(errbuf, sizeof(errbuf), my_errno()));
   }
   DBUG_RETURN((MY_DIR *) NULL);
 } /* my_dir */
@@ -248,7 +252,9 @@ MY_DIR	*my_dir(const char *path, myf MyFlags)
   names_storage= (MEM_ROOT*)(buffer + ALIGN_SIZE(sizeof(MY_DIR)) +
                              ALIGN_SIZE(sizeof(DYNAMIC_ARRAY)));
   
-  if (my_init_dynamic_array(dir_entries_storage, sizeof(FILEINFO),
+  if (my_init_dynamic_array(dir_entries_storage,
+                            key_memory_MY_DIR,
+                            sizeof(FILEINFO),
                             NULL,               /* init_buffer */
                             ENTRIES_START_SIZE, ENTRIES_INCREMENT))
   {
@@ -322,7 +328,7 @@ MY_DIR	*my_dir(const char *path, myf MyFlags)
   DBUG_PRINT("exit", ("found %d files", result->number_off_files));
   DBUG_RETURN(result);
 error:
-  my_errno=errno;
+  set_my_errno(errno);
   if (handle != -1)
       _findclose(handle);
   my_dirend(result);
@@ -344,7 +350,7 @@ error:
 
 
 int my_fstat(File Filedes, MY_STAT *stat_area,
-             myf MyFlags __attribute__((unused)))
+             myf MyFlags MY_ATTRIBUTE((unused)))
 {
   DBUG_ENTER("my_fstat");
   DBUG_PRINT("my",("fd: %d  MyFlags: %d", Filedes, MyFlags));
@@ -375,7 +381,7 @@ MY_STAT *my_stat(const char *path, MY_STAT *stat_area, myf my_flags)
       DBUG_RETURN(stat_area);
 #endif
   DBUG_PRINT("error",("Got errno: %d from stat", errno));
-  my_errno= errno;
+  set_my_errno(errno);
   if (m_used)					/* Free if new area */
     my_free(stat_area);
 
@@ -384,7 +390,7 @@ error:
   {
     char errbuf[MYSYS_STRERROR_SIZE];
     my_error(EE_STAT, MYF(0), path,
-             my_errno, my_strerror(errbuf, sizeof(errbuf), my_errno));
+             my_errno(), my_strerror(errbuf, sizeof(errbuf), my_errno()));
     DBUG_RETURN((MY_STAT *) NULL);
   }
   DBUG_RETURN((MY_STAT *) NULL);

@@ -1,4 +1,4 @@
-/* Copyright (c) 2011, 2013, Oracle and/or its affiliates. All rights reserved.
+/* Copyright (c) 2011, 2015, Oracle and/or its affiliates. All rights reserved.
 
    This program is free software; you can redistribute it and/or modify
    it under the terms of the GNU General Public License as published by
@@ -185,7 +185,7 @@ int sha256_password_auth_client(MYSQL_PLUGIN_VIO *vio, MYSQL *mysql)
   {
     /* We're not using a password */
     static const unsigned char zero_byte= '\0'; 
-    if (vio->write_packet(vio, (const unsigned char *) &zero_byte, 1))
+    if (vio->write_packet(vio, &zero_byte, 1))
       DBUG_RETURN(CR_ERROR);
   }
   else

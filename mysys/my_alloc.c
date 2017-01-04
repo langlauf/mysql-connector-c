@@ -1,4 +1,4 @@
-/* Copyright (c) 2000, 2014, Oracle and/or its affiliates. All rights reserved.
+/* Copyright (c) 2000, 2016, Oracle and/or its affiliates. All rights reserved.
 
    This program is free software; you can redistribute it and/or modify
    it under the terms of the GNU General Public License as published by
@@ -18,6 +18,8 @@
 #include <my_global.h>
 #include <my_sys.h>
 #include <m_string.h>
+#include "mysys_err.h"
+
 
 /*
   For instrumented code: don't preallocate memory in alloc_root().
@@ -51,7 +53,7 @@
 
 void init_alloc_root(PSI_memory_key key,
                      MEM_ROOT *mem_root, size_t block_size,
-		     size_t pre_alloc_size __attribute__((unused)))
+		     size_t pre_alloc_size MY_ATTRIBUTE((unused)))
 {
   DBUG_ENTER("init_alloc_root");
   DBUG_PRINT("enter",("root: 0x%lx", (long) mem_root));
@@ -103,7 +105,7 @@ void init_alloc_root(PSI_memory_key key,
 */
 
 void reset_root_defaults(MEM_ROOT *mem_root, size_t block_size,
-                         size_t pre_alloc_size __attribute__((unused)))
+                         size_t pre_alloc_size MY_ATTRIBUTE((unused)))
 {
   DBUG_ASSERT(alloc_root_inited(mem_root));
 
@@ -148,7 +150,7 @@ void reset_root_defaults(MEM_ROOT *mem_root, size_t block_size,
         mem->size= (uint)size;
         mem->left= (uint)pre_alloc_size;
         mem->next= *prev;
-        *prev= mem_root->pre_alloc= mem; 
+        *prev= mem_root->pre_alloc= mem;
       }
       else
       {
@@ -161,6 +163,18 @@ void reset_root_defaults(MEM_ROOT *mem_root, size_t block_size,
     mem_root->pre_alloc= 0;
 }
 
+
+/**
+  Function allocates the requested memory in the mem_root specified.
+
+  @param mem_root           memory root to allocate memory from
+  @length                   size to be allocated
+
+  @retval
+  void *                    Pointer to the memory thats been allocated
+  @retval
+  NULL                      Memory is not available.
+*/
 
 void *alloc_root(MEM_ROOT *mem_root, size_t length)
 {
@@ -187,6 +201,7 @@ void *alloc_root(MEM_ROOT *mem_root, size_t length)
       (*mem_root->error_handler)();
     DBUG_RETURN((uchar*) 0);			/* purecov: inspected */
   }
+  mem_root->allocated_size+= length;
   next->next= mem_root->used;
   next->size= (uint)length;
   next->left= (uint)(length - ALIGN_SIZE(sizeof(USED_MEM)));
@@ -340,6 +355,27 @@ static inline void mark_blocks_free(MEM_ROOT* root)
   /* Now everything is set; Indicate that nothing is used anymore */
   root->used= 0;
   root->first_block_usage= 0;
+}
+
+void claim_root(MEM_ROOT *root)
+{
+  USED_MEM *next,*old;
+  DBUG_ENTER("claim_root");
+  DBUG_PRINT("enter",("root: 0x%lx", (long) root));
+
+  for (next=root->used; next ;)
+  {
+    old=next; next= next->next ;
+    my_claim(old);
+  }
+
+  for (next=root->free ; next ;)
+  {
+    old=next; next= next->next;
+    my_claim(old);
+  }
+
+  DBUG_VOID_RETURN;
 }
 
 

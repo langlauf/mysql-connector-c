@@ -1,4 +1,4 @@
-/* Copyright (c) 2000, 2014, Oracle and/or its affiliates. All rights reserved.
+/* Copyright (c) 2000, 2015, Oracle and/or its affiliates. All rights reserved.
 
    This program is free software; you can redistribute it and/or modify
    it under the terms of the GNU General Public License as published by
@@ -14,9 +14,11 @@
    Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301  USA */
 
 #include "mysys_priv.h"
+#include "my_sys.h"
 #include "mysys_err.h"
 #include <my_dir.h>
 #include <errno.h>
+#include "my_thread_local.h"
 
 
 /*
@@ -80,12 +82,12 @@ int my_close(File fd, myf MyFlags)
   if (err)
   {
     DBUG_PRINT("error",("Got error %d on close",err));
-    my_errno=errno;
+    set_my_errno(errno);
     if (MyFlags & (MY_FAE | MY_WME))
     {
       char errbuf[MYSYS_STRERROR_SIZE];
       my_error(EE_BADCLOSE, MYF(0), my_filename(fd),
-               my_errno, my_strerror(errbuf, sizeof(errbuf), my_errno));
+               my_errno(), my_strerror(errbuf, sizeof(errbuf), my_errno()));
     }
   }
   if ((uint) fd < my_file_limit && my_file_info[fd].type != UNOPEN)
@@ -126,7 +128,7 @@ File my_register_filename(File fd, const char *FileName, enum file_type
     if ((uint) fd >= my_file_limit)
     {
 #if defined(_WIN32)
-      my_errno= EMFILE;
+      set_my_errno(EMFILE);
 #else
       mysql_mutex_lock(&THR_LOCK_open);
       my_file_opened++;
@@ -148,22 +150,22 @@ File my_register_filename(File fd, const char *FileName, enum file_type
         DBUG_PRINT("exit",("fd: %d",fd));
         DBUG_RETURN(fd);
       }
-      my_errno= ENOMEM;
+      set_my_errno(ENOMEM);
     }
     (void) my_close(fd, MyFlags);
   }
   else
-    my_errno= errno;
+    set_my_errno(errno);
 
-  DBUG_PRINT("error",("Got error %d on open", my_errno));
+  DBUG_PRINT("error",("Got error %d on open", my_errno()));
   if (MyFlags & (MY_FFNF | MY_FAE | MY_WME))
   {
     char errbuf[MYSYS_STRERROR_SIZE];
-    if (my_errno == EMFILE)
+    if (my_errno() == EMFILE)
       error_message_number= EE_OUT_OF_FILERESOURCES;
     DBUG_PRINT("error",("print err: %d",error_message_number));
     my_error(error_message_number, MYF(0), FileName,
-             my_errno, my_strerror(errbuf, sizeof(errbuf), my_errno));
+             my_errno(), my_strerror(errbuf, sizeof(errbuf), my_errno()));
   }
   DBUG_RETURN(-1);
 }

@@ -2,6 +2,7 @@
 #include "psi_base.h"
 #include "psi_memory.h"
 #include "psi_base.h"
+struct PSI_thread;
 typedef unsigned int PSI_memory_key;
 struct PSI_memory_info_v1
 {
@@ -13,11 +14,13 @@ typedef struct PSI_memory_info_v1 PSI_memory_info_v1;
 typedef void (*register_memory_v1_t)
   (const char *category, struct PSI_memory_info_v1 *info, int count);
 typedef PSI_memory_key (*memory_alloc_v1_t)
-  (PSI_memory_key key, size_t size);
+  (PSI_memory_key key, size_t size, struct PSI_thread ** owner);
 typedef PSI_memory_key (*memory_realloc_v1_t)
-  (PSI_memory_key key, size_t old_size, size_t new_size);
+  (PSI_memory_key key, size_t old_size, size_t new_size, struct PSI_thread ** owner);
+typedef PSI_memory_key (*memory_claim_v1_t)
+  (PSI_memory_key key, size_t size, struct PSI_thread ** owner);
 typedef void (*memory_free_v1_t)
-  (PSI_memory_key key, size_t size);
+  (PSI_memory_key key, size_t size, struct PSI_thread * owner);
 typedef struct PSI_memory_info_v1 PSI_memory_info;
 C_MODE_START
 struct MDL_key;
@@ -25,6 +28,7 @@ typedef struct MDL_key MDL_key;
 typedef int opaque_mdl_type;
 typedef int opaque_mdl_duration;
 typedef int opaque_mdl_status;
+typedef int opaque_vio_type;
 struct TABLE_SHARE;
 struct sql_digest_storage;
   struct opaque_THD
@@ -72,6 +76,27 @@ struct PSI_stage_progress
   ulonglong m_work_estimated;
 };
 typedef struct PSI_stage_progress PSI_stage_progress;
+enum PSI_table_io_operation
+{
+  PSI_TABLE_FETCH_ROW= 0,
+  PSI_TABLE_WRITE_ROW= 1,
+  PSI_TABLE_UPDATE_ROW= 2,
+  PSI_TABLE_DELETE_ROW= 3
+};
+typedef enum PSI_table_io_operation PSI_table_io_operation;
+struct PSI_table_locker_state
+{
+  uint m_flags;
+  enum PSI_table_io_operation m_io_operation;
+  struct PSI_table *m_table;
+  struct PSI_table_share *m_table_share;
+  struct PSI_thread *m_thread;
+  ulonglong m_timer_start;
+  ulonglong (*m_timer)(void);
+  void *m_wait;
+  uint m_index;
+};
+typedef struct PSI_table_locker_state PSI_table_locker_state;
 struct PSI_bootstrap
 {
   void* (*get_interface)(int version);
@@ -136,14 +161,6 @@ enum PSI_file_operation
   PSI_FILE_SYNC= 16
 };
 typedef enum PSI_file_operation PSI_file_operation;
-enum PSI_table_io_operation
-{
-  PSI_TABLE_FETCH_ROW= 0,
-  PSI_TABLE_WRITE_ROW= 1,
-  PSI_TABLE_UPDATE_ROW= 2,
-  PSI_TABLE_DELETE_ROW= 3
-};
-typedef enum PSI_table_io_operation PSI_table_io_operation;
 enum PSI_table_lock_operation
 {
   PSI_TABLE_LOCK= 0,
@@ -296,19 +313,6 @@ struct PSI_file_locker_state_v1
   void *m_wait;
 };
 typedef struct PSI_file_locker_state_v1 PSI_file_locker_state_v1;
-struct PSI_table_locker_state_v1
-{
-  uint m_flags;
-  enum PSI_table_io_operation m_io_operation;
-  struct PSI_table *m_table;
-  struct PSI_table_share *m_table_share;
-  struct PSI_thread *m_thread;
-  ulonglong m_timer_start;
-  ulonglong (*m_timer)(void);
-  void *m_wait;
-  uint m_index;
-};
-typedef struct PSI_table_locker_state_v1 PSI_table_locker_state_v1;
 struct PSI_metadata_locker_state_v1
 {
   uint m_flags;
@@ -348,6 +352,7 @@ struct PSI_statement_locker_state_v1
   const struct sql_digest_storage *m_digest;
   char m_schema_name[(64 * 3)];
   uint m_schema_name_length;
+  uint m_cs_number;
   PSI_sp_share *m_parent_sp_share;
   PSI_prepared_stmt *m_parent_prepared_stmt;
 };
@@ -437,8 +442,8 @@ typedef void (*close_table_v1_t)(struct TABLE_SHARE *server_share,
 typedef void (*create_file_v1_t)(PSI_file_key key, const char *name,
                                  File file);
 typedef int (*spawn_thread_v1_t)(PSI_thread_key key,
-                                 pthread_t *thread,
-                                 const pthread_attr_t *attr,
+                                 my_thread_handle *thread,
+                                 const my_thread_attr_t *attr,
                                  void *(*start_routine)(void*), void *arg);
 typedef struct PSI_thread* (*new_thread_v1_t)
   (PSI_thread_key key, const void *identity, ulonglong thread_id);
@@ -446,12 +451,14 @@ typedef void (*set_thread_THD_v1_t)(struct PSI_thread *thread,
                                     THD *thd);
 typedef void (*set_thread_id_v1_t)(struct PSI_thread *thread,
                                    ulonglong id);
+typedef void (*set_thread_os_id_v1_t)(struct PSI_thread *thread);
 typedef struct PSI_thread* (*get_thread_v1_t)(void);
 typedef void (*set_thread_user_v1_t)(const char *user, int user_len);
 typedef void (*set_thread_account_v1_t)(const char *user, int user_len,
                                         const char *host, int host_len);
 typedef void (*set_thread_db_v1_t)(const char* db, int db_len);
 typedef void (*set_thread_command_v1_t)(int command);
+typedef void (*set_connection_type_v1_t)(opaque_vio_type conn_type);
 typedef void (*set_thread_start_time_v1_t)(time_t start_time);
 typedef void (*set_thread_state_v1_t)(const char* state);
 typedef void (*set_thread_info_v1_t)(const char* info, uint info_len);
@@ -510,7 +517,7 @@ typedef struct PSI_cond_locker* (*start_cond_wait_v1_t)
 typedef void (*end_cond_wait_v1_t)
   (struct PSI_cond_locker *locker, int rc);
 typedef struct PSI_table_locker* (*start_table_io_wait_v1_t)
-  (struct PSI_table_locker_state_v1 *state,
+  (struct PSI_table_locker_state *state,
    struct PSI_table *table,
    enum PSI_table_io_operation op,
    uint index,
@@ -519,7 +526,7 @@ typedef void (*end_table_io_wait_v1_t)
   (struct PSI_table_locker *locker,
    ulonglong numrows);
 typedef struct PSI_table_locker* (*start_table_lock_wait_v1_t)
-  (struct PSI_table_locker_state_v1 *state,
+  (struct PSI_table_locker_state *state,
    struct PSI_table *table,
    enum PSI_table_lock_operation op,
    ulong flags,
@@ -532,6 +539,8 @@ typedef struct PSI_file* (*end_file_open_wait_v1_t)
   (struct PSI_file_locker *locker, void *result);
 typedef void (*end_file_open_wait_and_bind_to_descriptor_v1_t)
   (struct PSI_file_locker *locker, File file);
+typedef void (*end_temp_file_open_wait_and_bind_to_descriptor_v1_t)
+  (struct PSI_file_locker *locker, File file, const char *filename);
 typedef void (*start_file_wait_v1_t)
   (struct PSI_file_locker *locker, size_t count,
    const char *src_file, uint src_line);
@@ -711,11 +720,13 @@ struct PSI_v1
   new_thread_v1_t new_thread;
   set_thread_id_v1_t set_thread_id;
   set_thread_THD_v1_t set_thread_THD;
+  set_thread_os_id_v1_t set_thread_os_id;
   get_thread_v1_t get_thread;
   set_thread_user_v1_t set_thread_user;
   set_thread_account_v1_t set_thread_account;
   set_thread_db_v1_t set_thread_db;
   set_thread_command_v1_t set_thread_command;
+  set_connection_type_v1_t set_connection_type;
   set_thread_start_time_v1_t set_thread_start_time;
   set_thread_state_v1_t set_thread_state;
   set_thread_info_v1_t set_thread_info;
@@ -747,6 +758,8 @@ struct PSI_v1
   end_file_open_wait_v1_t end_file_open_wait;
   end_file_open_wait_and_bind_to_descriptor_v1_t
     end_file_open_wait_and_bind_to_descriptor;
+  end_temp_file_open_wait_and_bind_to_descriptor_v1_t
+    end_temp_file_open_wait_and_bind_to_descriptor;
   start_file_wait_v1_t start_file_wait;
   end_file_wait_v1_t end_file_wait;
   start_file_close_wait_v1_t start_file_close_wait;
@@ -805,6 +818,7 @@ struct PSI_v1
   register_memory_v1_t register_memory;
   memory_alloc_v1_t memory_alloc;
   memory_realloc_v1_t memory_realloc;
+  memory_claim_v1_t memory_claim;
   memory_free_v1_t memory_free;
   unlock_table_v1_t unlock_table;
   create_metadata_lock_v1_t create_metadata_lock;
@@ -828,7 +842,6 @@ typedef struct PSI_mutex_locker_state_v1 PSI_mutex_locker_state;
 typedef struct PSI_rwlock_locker_state_v1 PSI_rwlock_locker_state;
 typedef struct PSI_cond_locker_state_v1 PSI_cond_locker_state;
 typedef struct PSI_file_locker_state_v1 PSI_file_locker_state;
-typedef struct PSI_table_locker_state_v1 PSI_table_locker_state;
 typedef struct PSI_statement_locker_state_v1 PSI_statement_locker_state;
 typedef struct PSI_transaction_locker_state_v1 PSI_transaction_locker_state;
 typedef struct PSI_socket_locker_state_v1 PSI_socket_locker_state;

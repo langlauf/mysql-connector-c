@@ -1,4 +1,4 @@
-/* Copyright (c) 2014, Oracle and/or its affiliates. All rights reserved.
+/* Copyright (c) 2014, 2016, Oracle and/or its affiliates. All rights reserved.
 
    This program is free software; you can redistribute it and/or modify
    it under the terms of the GNU General Public License as published by
@@ -14,23 +14,22 @@
    Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301  USA */
 
 
-#include "my_pthread.h"   /* my_thread_init, my_thread_end */
+#include "my_thread.h"   /* my_thread_init, my_thread_end */
 #include "my_sys.h"       /* my_message_local */
 #include "my_timer.h"     /* my_timer_t */
+#include "my_global.h"
 
 #include <sys/types.h>
 #include <sys/event.h>
 #ifdef HAVE_SYS_TIME_H
 #include <sys/time.h>
 #endif
-#include <assert.h>
-#include <errno.h>
 
 /* Kernel event queue file descriptor. */
 static int kq_fd= -1;
 
 /* Timer thread object. */
-static pthread_t timer_notify_thread;
+static my_thread_handle timer_notify_thread;
 
 /**
   Timer expiration notification thread.
@@ -39,7 +38,7 @@ static pthread_t timer_notify_thread;
 */
 
 static void *
-timer_notify_thread_func(void *arg __attribute__((unused)))
+timer_notify_thread_func(void *arg MY_ATTRIBUTE((unused)))
 {
   my_timer_t *timer;
   struct kevent kev;
@@ -65,13 +64,14 @@ timer_notify_thread_func(void *arg __attribute__((unused)))
     if (kev.filter == EVFILT_TIMER)
     {
       timer= kev.udata;
-      assert(timer->id == kev.ident);
+      DBUG_ASSERT(timer->id == kev.ident);
       timer->notify_function(timer);
     }
     else if (kev.filter == EVFILT_USER)
       break;
   }
 
+  close(kq_fd);
   my_thread_end();
 
   return NULL;
@@ -145,17 +145,12 @@ my_timer_deinitialize(void)
 
   EV_SET(&kev, 0, EVFILT_USER, 0, NOTE_TRIGGER, 0, 0);
 
-  /*
-    kevent might fail here, but timer notifier thread is anyway interrupted on
-    closing queue descriptor "kq_fd".
-  */
-  if (kevent(kq_fd, &kev, 1, NULL, 0, NULL) < -1)
+  if (kevent(kq_fd, &kev, 1, NULL, 0, NULL) < 0)
     my_message_local(ERROR_LEVEL,
                      "Failed to create event to interrupt timer notifier thread"
                      " (errno= %d).", errno);
 
-  close(kq_fd);
-  pthread_join(timer_notify_thread, NULL);
+  my_thread_join(&timer_notify_thread, NULL);
 }
 
 
@@ -171,7 +166,7 @@ my_timer_deinitialize(void)
 int
 my_timer_create(my_timer_t *timer)
 {
-  assert(kq_fd >= 0);
+  DBUG_ASSERT(kq_fd >= 0);
 
   timer->id= (uintptr_t) timer;
 

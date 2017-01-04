@@ -1,4 +1,4 @@
-/* Copyright (c) 2000, 2013, Oracle and/or its affiliates. All rights reserved.
+/* Copyright (c) 2000, 2016, Oracle and/or its affiliates. All rights reserved.
 
    This program is free software; you can redistribute it and/or modify
    it under the terms of the GNU General Public License as published by
@@ -14,7 +14,9 @@
    Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA */
 
 #include "mysys_priv.h"
+#include "my_sys.h"
 #include <m_string.h>
+#include "my_thread_local.h"
 
 #ifdef _WIN32
 
@@ -45,7 +47,8 @@ int my_access(const char *path, int amode)
   if (! result ||
       (fileinfo.dwFileAttributes & FILE_ATTRIBUTE_READONLY) && (amode & W_OK))
   {
-    my_errno= errno= EACCES;
+    errno= EACCES;
+    set_my_errno(EACCES);
     return -1;
   }
   return 0;
@@ -187,9 +190,9 @@ static my_bool does_drive_exists(char drive_letter)
  
   @return TRUE if the file name is allowed, FALSE otherwise.
 */
-my_bool is_filename_allowed(const char *name __attribute__((unused)),
-                            size_t length __attribute__((unused)),
-                            my_bool allow_current_dir __attribute__((unused)))
+my_bool is_filename_allowed(const char *name MY_ATTRIBUTE((unused)),
+                            size_t length MY_ATTRIBUTE((unused)),
+                            my_bool allow_current_dir MY_ATTRIBUTE((unused)))
 {
   /* 
     For Windows, check if the file name contains : character.

@@ -1,4 +1,4 @@
-/* Copyright (c) 2000, 2013, Oracle and/or its affiliates. All rights reserved.
+/* Copyright (c) 2000, 2015, Oracle and/or its affiliates. All rights reserved.
 
    This program is free software; you can redistribute it and/or modify
    it under the terms of the GNU General Public License as published by
@@ -21,8 +21,10 @@
 */
 
 #include "mysys_priv.h"
+#include "my_sys.h"
 #include "mysys_err.h"
 #include <m_string.h>
+#include "my_thread_local.h"
 
 File my_create_with_symlink(const char *linkname, const char *filename,
 			    int createflags, int access_flags, myf MyFlags)
@@ -57,7 +59,8 @@ File my_create_with_symlink(const char *linkname, const char *filename,
     if (!access(filename,F_OK))
     {
       char errbuf[MYSYS_STRERROR_SIZE];
-      my_errno= errno= EEXIST;
+      errno= EEXIST;
+      set_my_errno(EEXIST);
       my_error(EE_CANTCREATEFILE, MYF(0), filename,
                EEXIST, my_strerror(errbuf, sizeof(errbuf), EEXIST));
       DBUG_RETURN(-1);
@@ -65,7 +68,8 @@ File my_create_with_symlink(const char *linkname, const char *filename,
     if (create_link && !access(linkname,F_OK))
     {
       char errbuf[MYSYS_STRERROR_SIZE];
-      my_errno= errno= EEXIST;
+      errno= EEXIST;
+      set_my_errno(EEXIST);
       my_error(EE_CANTCREATEFILE, MYF(0), linkname,
                EEXIST, my_strerror(errbuf, sizeof(errbuf), EEXIST));
       DBUG_RETURN(-1);
@@ -83,11 +87,11 @@ File my_create_with_symlink(const char *linkname, const char *filename,
       if (my_symlink(filename, linkname, MyFlags))
       {
 	/* Fail, remove everything we have done */
-	tmp_errno=my_errno;
+	tmp_errno=my_errno();
 	my_close(file,MYF(0));
 	my_delete(filename, MYF(0));
 	file= -1;
-	my_errno=tmp_errno;
+	set_my_errno(tmp_errno);
       }
     }
   }
@@ -146,7 +150,7 @@ int my_rename_with_symlink(const char *from, const char *to, myf MyFlags)
   name_is_different= strcmp(link_name, tmp_name);
   if (name_is_different && !access(tmp_name, F_OK))
   {
-    my_errno= EEXIST;
+    set_my_errno(EEXIST);
     if (MyFlags & MY_WME)
     {
       char errbuf[MYSYS_STRERROR_SIZE];
@@ -168,22 +172,22 @@ int my_rename_with_symlink(const char *from, const char *to, myf MyFlags)
 
   if (name_is_different && my_rename(link_name, tmp_name, MyFlags))
   {
-    int save_errno=my_errno;
+    int save_errno=my_errno();
     my_delete(to, MyFlags);			/* Remove created symlink */
-    my_errno=save_errno;
+    set_my_errno(save_errno);
     DBUG_RETURN(1);
   }
 
   /* Remove original symlink */
   if (my_delete(from, MyFlags))
   {
-    int save_errno=my_errno;
+    int save_errno=my_errno();
     /* Remove created link */
     my_delete(to, MyFlags);
     /* Rename file back */
     if (strcmp(link_name, tmp_name))
       (void) my_rename(tmp_name, link_name, MyFlags);
-    my_errno=save_errno;
+    set_my_errno(save_errno);
     result= 1;
   }
   DBUG_RETURN(result);

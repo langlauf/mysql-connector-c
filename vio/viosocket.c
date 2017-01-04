@@ -1,5 +1,5 @@
 /*
-   Copyright (c) 2001, 2013, Oracle and/or its affiliates. All rights reserved.
+   Copyright (c) 2001, 2016, Oracle and/or its affiliates. All rights reserved.
 
    This program is free software; you can redistribute it and/or
    modify it under the terms of the GNU General Public License
@@ -38,7 +38,7 @@
 # include <sys/ioctl.h>
 #endif
 
-int vio_errno(Vio *vio __attribute__((unused)))
+int vio_errno(Vio *vio MY_ATTRIBUTE((unused)))
 {
   /* These transport types are not Winsock based. */
 #ifdef _WIN32
@@ -256,8 +256,8 @@ static int vio_set_blocking(Vio *vio, my_bool status)
 
 
 int vio_socket_timeout(Vio *vio,
-                       uint which __attribute__((unused)),
-                       my_bool old_mode __attribute__((unused)))
+                       uint which MY_ATTRIBUTE((unused)),
+                       my_bool old_mode MY_ATTRIBUTE((unused)))
 {
   int ret= 0;
   DBUG_ENTER("vio_socket_timeout");
@@ -323,7 +323,7 @@ int vio_socket_timeout(Vio *vio,
 }
 
 
-int vio_fastsend(Vio * vio __attribute__((unused)))
+int vio_fastsend(Vio * vio MY_ATTRIBUTE((unused)))
 {
   int r=0;
   DBUG_ENTER("vio_fastsend");
@@ -820,6 +820,11 @@ int vio_io_wait(Vio *vio, enum enum_vio_io_event event, int timeout)
 
   if (fd == INVALID_SOCKET)
     DBUG_RETURN(-1);
+
+#ifdef __APPLE__
+  if (fd >= FD_SETSIZE)
+    DBUG_RETURN(-1);
+#endif
 
   /* Convert the timeout, in milliseconds, to seconds and microseconds. */
   if (timeout >= 0)

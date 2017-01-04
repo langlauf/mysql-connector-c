@@ -1,19 +1,19 @@
-# Copyright (c) 2006, 2014, Oracle and/or its affiliates. All rights reserved.
-# 
+# Copyright (c) 2006, 2016, Oracle and/or its affiliates. All rights reserved.
+#
 # This program is free software; you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
 # the Free Software Foundation; version 2 of the License.
-# 
+#
 # This program is distributed in the hope that it will be useful,
 # but WITHOUT ANY WARRANTY; without even the implied warranty of
 # MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 # GNU General Public License for more details.
-# 
+#
 # You should have received a copy of the GNU General Public License
 # along with this program; if not, write to the Free Software
 # Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301 USA
 
-IF(WIN32 AND MSVC12)
+IF(WIN32)
   # CMake 2.8.12 is needed for Visual Studio 2013
   CMAKE_MINIMUM_REQUIRED(VERSION 2.8.12)
 ELSE()
@@ -47,7 +47,7 @@ MESSAGE(STATUS "Running cmake version ${CMAKE_VERSION}")
 SET(CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH} ${CMAKE_SOURCE_DIR}/cmake)
 
 # First, decide about build type (debug or release)
-# If cmake is invoked with -DCMAKE_BUILD_TYPE, 
+# If cmake is invoked with -DCMAKE_BUILD_TYPE,
 # respect user wishes and do not (re)define CMAKE_BUILD_TYPE. If WITH_DEBUG
 # is given, set CMAKE_BUILD_TYPE = Debug. Otherwise, use Relwithdebinfo.
 
@@ -61,20 +61,20 @@ OPTION(WITH_DEBUG "Use dbug/safemutex" OFF)
 # default being a community build. This does not impact the feature
 # set that will be compiled in; it's merely provided as a hint to
 # custom packaging steps.
-OPTION(COMMUNITY_BUILD "Set to true if this is a community build" ON) 
+OPTION(COMMUNITY_BUILD "Set to true if this is a community build" ON)
 
 # Use a default manufacturer if no manufacturer was identified.
 SET(MANUFACTURER_DOCSTRING
   "Set the entity that appears as the manufacturer of packages that support a manufacturer field.")
-IF(NOT DEFINED MANUFACTURER) 
+IF(NOT DEFINED MANUFACTURER)
   SET(MANUFACTURER "Built from Source" CACHE  STRING ${MANUFACTURER_DOCSTRING})
   MARK_AS_ADVANCED(MANUFACTURER)
 ENDIF()
 
 # We choose to provide WITH_DEBUG as alias to standard CMAKE_BUILD_TYPE=Debug
-# which turns out to be not trivial, as this involves synchronization 
+# which turns out to be not trivial, as this involves synchronization
 # between CMAKE_BUILD_TYPE and WITH_DEBUG. Besides, we have to deal with cases
-# where WITH_DEBUG is  reset from ON to OFF  and here we need to reset 
+# where WITH_DEBUG is  reset from ON to OFF  and here we need to reset
 # CMAKE_BUILD_TYPE to either none or default RelWithDebInfo
 
 SET(BUILDTYPE_DOCSTRING
@@ -84,14 +84,14 @@ SET(BUILDTYPE_DOCSTRING
 IF(WITH_DEBUG)
   SET(CMAKE_BUILD_TYPE "Debug" CACHE STRING ${BUILDTYPE_DOCSTRING} FORCE)
   IF(UNIX AND NOT APPLE)
-    # Compiling with PIC speeds up embedded build, on PIC sensitive systems 
-    # Predefine it to ON, in case user chooses to build embedded. 
+    # Compiling with PIC speeds up embedded build, on PIC sensitive systems
+    # Predefine it to ON, in case user chooses to build embedded.
     SET(WITH_PIC ON CACHE BOOL "Compile with PIC")
   ENDIF()
   SET(OLD_WITH_DEBUG 1 CACHE INTERNAL "" FORCE)
 ELSEIF(NOT HAVE_CMAKE_BUILD_TYPE OR OLD_WITH_DEBUG)
   IF(CMAKE_BUILD_TYPE MATCHES "Debug" OR NOT HAVE_CMAKE_BUILD_TYPE)
-    SET(CMAKE_BUILD_TYPE "RelWithDebInfo" CACHE STRING 
+    SET(CMAKE_BUILD_TYPE "RelWithDebInfo" CACHE STRING
        ${BUILDTYPE_DOCSTRING} FORCE)
   ENDIF()
   SET(OLD_WITH_DEBUG 0 CACHE INTERNAL "" FORCE)
@@ -153,7 +153,7 @@ FOREACH(_base
   ENDIF()
 ENDFOREACH()
 
- 
+
 # Following autotools tradition, add preprocessor definitions
 # specified in environment variable CPPFLAGS
 IF(DEFINED ENV{CPPFLAGS})
@@ -201,7 +201,7 @@ INCLUDE(install_layout)
 INCLUDE(mysql_add_executable)
 
 # Handle options
-OPTION(DISABLE_SHARED 
+OPTION(DISABLE_SHARED
  "Don't build shared libraries, compile code as position-dependent" OFF)
 MARK_AS_ADVANCED(DISABLE_SHARED)
 IF(DISABLE_SHARED)
@@ -231,6 +231,8 @@ MACRO (MY_CHECK_C_COMPILER_FLAG FLAG RESULT)
     FAIL_REGEX "unrecognized .*option"
     FAIL_REGEX "ignoring unknown option"
     FAIL_REGEX "[Ww]arning: [Oo]ption"
+    FAIL_REGEX "error: visibility"
+    FAIL_REGEX "warning: visibility"
     )
   SET(CMAKE_REQUIRED_FLAGS "${SAVE_CMAKE_REQUIRED_FLAGS}")
 ENDMACRO()
@@ -245,6 +247,8 @@ MACRO (MY_CHECK_CXX_COMPILER_FLAG FLAG RESULT)
     FAIL_REGEX "unrecognized .*option"
     FAIL_REGEX "ignoring unknown option"
     FAIL_REGEX "[Ww]arning: [Oo]ption"
+    FAIL_REGEX "error: visibility"
+    FAIL_REGEX "warning: visibility"
     )
   SET(CMAKE_REQUIRED_FLAGS "${SAVE_CMAKE_REQUIRED_FLAGS}")
 ENDMACRO()
@@ -294,6 +298,9 @@ IF(WITH_UBSAN)
   IF(NOT WITH_UBSAN_OK)
     MESSAGE(FATAL_ERROR
             "Do not know how to enable undefined behavior sanitizer")
+  ELSE()
+    MESSAGE(WARNING
+            "Note that Undefined Behavior support is currently experimental.")
   ENDIF()
 ENDIF()
 
@@ -303,12 +310,12 @@ IF(WITH_ASAN AND WITH_MSAN)
 ENDIF()
 
 
-OPTION(ENABLE_DEBUG_SYNC "Enable debug sync (debug builds only)" ON) 
-IF(ENABLE_DEBUG_SYNC) 
-  SET(CMAKE_CXX_FLAGS_DEBUG "${CMAKE_CXX_FLAGS_DEBUG} -DENABLED_DEBUG_SYNC") 
-  SET(CMAKE_C_FLAGS_DEBUG "${CMAKE_C_FLAGS_DEBUG} -DENABLED_DEBUG_SYNC") 
-ENDIF() 
- 
+OPTION(ENABLE_DEBUG_SYNC "Enable debug sync (debug builds only)" ON)
+IF(ENABLE_DEBUG_SYNC)
+  SET(CMAKE_CXX_FLAGS_DEBUG "${CMAKE_CXX_FLAGS_DEBUG} -DENABLED_DEBUG_SYNC")
+  SET(CMAKE_C_FLAGS_DEBUG "${CMAKE_C_FLAGS_DEBUG} -DENABLED_DEBUG_SYNC")
+ENDIF()
+
 # Older versions of ccache must be disabled: export CCACHE_DISABLE=1
 # See http://www.cmake.org/Wiki/CTest/Coverage
 OPTION(ENABLE_GCOV "Enable gcov (debug, Linux builds only)" OFF)
@@ -355,7 +362,7 @@ SET(WITH_TEST_TRACE_PLUGIN 0)
 ENDIF()
 
 IF(WITH_TEST_TRACE_PLUGIN AND NOT CMAKE_BUILD_TYPE MATCHES "Debug")
-  MESSAGE(SEND_ERROR 
+  MESSAGE(SEND_ERROR
           "Test trace plugin was selected but it can be included only in debug binaries.
           Set WITH_TEST_TRACE_PLUGIN to OFF or WITH_DEBUG to ON.")
 ENDIF()
@@ -363,20 +370,20 @@ ENDIF()
 # Set DBUG_OFF and other optional release-only flags for non-debug project types
 FOREACH(BUILD_TYPE RELEASE RELWITHDEBINFO MINSIZEREL)
   FOREACH(LANG C CXX)
-    SET(CMAKE_${LANG}_FLAGS_${BUILD_TYPE} 
+    SET(CMAKE_${LANG}_FLAGS_${BUILD_TYPE}
      "${CMAKE_${LANG}_FLAGS_${BUILD_TYPE}} -DDBUG_OFF")
     IF(WITH_FAST_MUTEXES)
-      SET(CMAKE_${LANG}_FLAGS_${BUILD_TYPE} 
+      SET(CMAKE_${LANG}_FLAGS_${BUILD_TYPE}
         "${CMAKE_${LANG}_FLAGS_${BUILD_TYPE}} -DMY_PTHREAD_FASTMUTEX=1")
     ENDIF()
   ENDFOREACH()
 ENDFOREACH()
 
 IF(NOT CMAKE_BUILD_TYPE
-    AND NOT CMAKE_GENERATOR MATCHES "Visual Studio" 
-    AND NOT CMAKE_GENERATOR MATCHES "Xcode") 
+    AND NOT CMAKE_GENERATOR MATCHES "Visual Studio"
+    AND NOT CMAKE_GENERATOR MATCHES "Xcode")
     # This is the case of no CMAKE_BUILD_TYPE choosen, typical for VS and Xcode
-    # or if custom C flags are set. In VS and Xcode for non-Debug configurations 
+    # or if custom C flags are set. In VS and Xcode for non-Debug configurations
     # DBUG_OFF is already correctly set.
     ADD_DEFINITIONS(-DDBUG_OFF)
 ENDIF()
@@ -389,7 +396,7 @@ IF(NOT WITH_INNODB_MEMCACHED)
   ENDFOREACH()
 ENDIF()
 
-SET(PKG_INSTALL_PREFIX ${CMAKE_INSTALL_PREFIX} CACHE PATH 
+SET(PKG_INSTALL_PREFIX ${CMAKE_INSTALL_PREFIX} CACHE PATH
     "Location where package will install itself on the target system")
 MESSAGE(STATUS "Installing to: ${PKG_INSTALL_PREFIX}")
 
@@ -409,15 +416,26 @@ IF(INSTALL_MYSQLDATADIR MATCHES "^/.*")
 ELSE()
   SET(MYSQL_DATADIR "${DEFAULT_MYSQL_HOME}/${INSTALL_MYSQLDATADIR}" CACHE PATH "default MySQL data directory")
 ENDIF()
+IF(INSTALL_MYSQLKEYRINGDIR MATCHES "^/.*")
+  SET(MYSQL_KEYRINGDIR ${INSTALL_MYSQLKEYRINGDIR} CACHE PATH "default MySQL keyring directory")
+ELSE()
+  SET(MYSQL_KEYRINGDIR "${DEFAULT_MYSQL_HOME}/${INSTALL_MYSQLKEYRINGDIR}" CACHE PATH "default MySQL keyring directory")
+ENDIF()
 SET(DEFAULT_CHARSET_HOME "${DEFAULT_MYSQL_HOME}")
 SET(PLUGINDIR "${DEFAULT_MYSQL_HOME}/${INSTALL_PLUGINDIR}")
 IF(SYSCONFDIR)
   SET(DEFAULT_SYSCONFDIR "${SYSCONFDIR}")
 ENDIF()
 
-SET(TMPDIR "P_tmpdir"
-  CACHE PATH
-  "PATH to MySQL TMP dir. Defaults to the P_tmpdir macro in <stdio.h>")
+IF(WIN32) # P_tmpdir is not defined on Windows as of VS2015.
+  SET(TMPDIR "" # So we use empty path as default. In practice TMP/TEMP is used
+    CACHE PATH
+    "PATH to MySQL TMP dir")
+ELSE()
+  SET(TMPDIR "P_tmpdir"
+    CACHE PATH
+    "PATH to MySQL TMP dir. Defaults to the P_tmpdir macro in <stdio.h>")
+ENDIF()
 IF(TMPDIR STREQUAL "P_tmpdir")
   # Do not quote it, to refer to the P_tmpdir macro.
   SET(DEFAULT_TMPDIR "P_tmpdir")
@@ -496,7 +514,7 @@ ENDIF()
 SET(WITH_INNOBASE_STORAGE_ENGINE 0)
 ADD_SUBDIRECTORY(extra)
 ADD_SUBDIRECTORY(scripts)
-ADD_SUBDIRECTORY(tests)
+ADD_SUBDIRECTORY(testclients)
 ADD_SUBDIRECTORY(support-files)
 
 #
@@ -511,14 +529,17 @@ CONFIGURE_FILE(config.h.cmake   ${CMAKE_BINARY_DIR}/include/my_config.h)
 CONFIGURE_FILE(config.h.cmake   ${CMAKE_BINARY_DIR}/include/config.h)
 CONFIGURE_FILE(${CMAKE_SOURCE_DIR}/include/mysql_version.h.in
                ${CMAKE_BINARY_DIR}/include/mysql_version.h )
+#CONFIGURE_FILE(${CMAKE_SOURCE_DIR}/sql/sql_builtin.cc.in
+#    ${CMAKE_BINARY_DIR}/sql/sql_builtin.cc)
 CONFIGURE_FILE(
-    ${CMAKE_SOURCE_DIR}/cmake/info_macros.cmake.in ${CMAKE_BINARY_DIR}/info_macros.cmake @ONLY)
+    ${CMAKE_SOURCE_DIR}/cmake/info_macros.cmake.in
+    ${CMAKE_BINARY_DIR}/info_macros.cmake @ONLY)
 
 # Handle the "INFO_*" files.
 INCLUDE(${CMAKE_BINARY_DIR}/info_macros.cmake)
 # Source: This can be done during the cmake phase, all information is
 # available, but should be repeated on each "make" just in case someone
-# does "cmake ; make ; bzr pull ; make".
+# does "cmake ; make ; git pull ; make".
 CREATE_INFO_SRC(${CMAKE_BINARY_DIR}/Docs)
 ADD_CUSTOM_TARGET(INFO_SRC ALL
   COMMAND ${CMAKE_COMMAND} -P ${CMAKE_SOURCE_DIR}/cmake/info_src.cmake
@@ -535,15 +556,15 @@ IF(WIN32)
   SET(CPACK_GENERATOR "ZIP")
 ELSE()
   SET(CPACK_GENERATOR "TGZ")
-ENDIF() 
+ENDIF()
 ADD_SUBDIRECTORY(packaging/WiX)
 
 #
 # RPM installs documentation directly from the source tree
 #
 IF(NOT INSTALL_LAYOUT MATCHES "RPM")
-  INSTALL(FILES COPYING LICENSE.mysql 
-    DESTINATION ${INSTALL_DOCREADMEDIR} 
+  INSTALL(FILES COPYING LICENSE.mysql
+    DESTINATION ${INSTALL_DOCREADMEDIR}
     COMPONENT Readme
     OPTIONAL
   )

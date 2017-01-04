@@ -1,4 +1,4 @@
-/* Copyright (c) 2001, 2014, Oracle and/or its affiliates. All rights reserved.
+/* Copyright (c) 2001, 2016, Oracle and/or its affiliates. All rights reserved.
 
    This program is free software; you can redistribute it and/or modify
    it under the terms of the GNU General Public License as published by
@@ -16,7 +16,7 @@
 #include "my_stacktrace.h"
 
 #ifndef _WIN32
-#include "my_pthread.h"
+#include "my_thread.h"
 #include "m_string.h"
 #include <signal.h>
 #ifdef HAVE_UNISTD_H
@@ -159,8 +159,8 @@ void my_safe_puts_stderr(const char* val, size_t max_len)
 /* Use Solaris' symbolic stack trace routine. */
 #include <ucontext.h>
 
-void my_print_stacktrace(uchar* stack_bottom __attribute__((unused)), 
-                         ulong thread_stack __attribute__((unused)))
+void my_print_stacktrace(uchar* stack_bottom MY_ATTRIBUTE((unused)), 
+                         ulong thread_stack MY_ATTRIBUTE((unused)))
 {
   if (printstack(fileno(stderr)) == -1)
     my_safe_printf_stderr("%s",
@@ -178,9 +178,9 @@ void my_print_stacktrace(uchar* stack_bottom __attribute__((unused)),
 
 #if HAVE_ABI_CXA_DEMANGLE
 
-char __attribute__ ((weak)) *
-my_demangle(const char *mangled_name __attribute__((unused)),
-            int *status __attribute__((unused)))
+char MY_ATTRIBUTE ((weak)) *
+my_demangle(const char *mangled_name MY_ATTRIBUTE((unused)),
+            int *status MY_ATTRIBUTE((unused)))
 {
   return NULL;
 }
@@ -244,7 +244,7 @@ void my_print_stacktrace(uchar* stack_bottom, ulong thread_stack)
 void my_write_core(int sig)
 {
   signal(sig, SIG_DFL);
-  pthread_kill(pthread_self(), sig);
+  pthread_kill(my_thread_self(), sig);
 #if defined(P_MYID)
   /* On Solaris, the above kill is not enough */
   sigsend(P_PID,P_MYID,sig);

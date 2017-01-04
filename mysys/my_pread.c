@@ -1,4 +1,4 @@
-/* Copyright (c) 2000, 2013, Oracle and/or its affiliates. All rights reserved.
+/* Copyright (c) 2000, 2015, Oracle and/or its affiliates. All rights reserved.
 
    This program is free software; you can redistribute it and/or modify
    it under the terms of the GNU General Public License as published by
@@ -14,10 +14,12 @@
    Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301  USA */
 
 #include "mysys_priv.h"
+#include "my_sys.h"
 #include "mysys_err.h"
 #include "my_base.h"
 #include <m_string.h>
 #include <errno.h>
+#include "my_thread_local.h"
 
 
 /*
@@ -60,13 +62,13 @@ size_t my_pread(File Filedes, uchar *Buffer, size_t Count, my_off_t offset,
     error= (readbytes != Count);
     if(error)
     {
-      my_errno= errno ? errno : -1;
+      set_my_errno(errno ? errno : -1);
       if (errno == 0 || (readbytes != (size_t) -1 &&
                       (MyFlags & (MY_NABP | MY_FNABP))))
-         my_errno= HA_ERR_FILE_TOO_SHORT;
+        set_my_errno(HA_ERR_FILE_TOO_SHORT);
 
       DBUG_PRINT("warning",("Read only %d bytes off %u from %d, errno: %d",
-                            (int) readbytes, (uint) Count,Filedes,my_errno));
+                            (int) readbytes, (uint) Count,Filedes,my_errno()));
 
       if ((readbytes == 0 || readbytes == (size_t) -1) && errno == EINTR)
       {
@@ -80,10 +82,10 @@ size_t my_pread(File Filedes, uchar *Buffer, size_t Count, my_off_t offset,
         char errbuf[MYSYS_STRERROR_SIZE];
         if (readbytes == (size_t) -1)
           my_error(EE_READ, MYF(0), my_filename(Filedes),
-                   my_errno, my_strerror(errbuf, sizeof(errbuf), my_errno));
+                   my_errno(), my_strerror(errbuf, sizeof(errbuf), my_errno()));
         else if (MyFlags & (MY_NABP | MY_FNABP))
           my_error(EE_EOFERR, MYF(0), my_filename(Filedes),
-                   my_errno, my_strerror(errbuf, sizeof(errbuf), my_errno));
+                   my_errno(), my_strerror(errbuf, sizeof(errbuf), my_errno()));
       }
       if (readbytes == (size_t) -1 || (MyFlags & (MY_FNABP | MY_NABP)))
         DBUG_RETURN(MY_FILE_ERROR);         /* Return with error */
@@ -151,7 +153,7 @@ size_t my_pwrite(File Filedes, const uchar *Buffer, size_t Count,
       sum_written+= writtenbytes;
       break;
     }
-    my_errno= errno;
+    set_my_errno(errno);
     if (writtenbytes != (size_t) -1)
     {
       sum_written+= writtenbytes;
@@ -161,10 +163,10 @@ size_t my_pwrite(File Filedes, const uchar *Buffer, size_t Count,
     }
     DBUG_PRINT("error",("Write only %u bytes", (uint) writtenbytes));
 
-    if (mysys_thread_var()->abort)
+    if (is_killed_hook(NULL))
       MyFlags&= ~ MY_WAIT_IF_FULL;		/* End if aborted by user */
 
-    if ((my_errno == ENOSPC || my_errno == EDQUOT) &&
+    if ((my_errno() == ENOSPC || my_errno() == EDQUOT) &&
         (MyFlags & MY_WAIT_IF_FULL))
     {
       wait_for_free_space(my_filename(Filedes), errors);
@@ -173,7 +175,7 @@ size_t my_pwrite(File Filedes, const uchar *Buffer, size_t Count,
     }
     if (writtenbytes != 0 && writtenbytes != (size_t) -1)
       continue;
-    else if (my_errno == EINTR)
+    else if (my_errno() == EINTR)
     {
       continue;                                 /* Retry */
     }
@@ -192,7 +194,7 @@ size_t my_pwrite(File Filedes, const uchar *Buffer, size_t Count,
     {
       char errbuf[MYSYS_STRERROR_SIZE];
       my_error(EE_WRITE, MYF(0), my_filename(Filedes),
-               my_errno, my_strerror(errbuf, sizeof(errbuf), my_errno));
+               my_errno(), my_strerror(errbuf, sizeof(errbuf), my_errno()));
     }
     DBUG_RETURN(MY_FILE_ERROR);
   }

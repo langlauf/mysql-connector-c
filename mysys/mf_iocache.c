@@ -1,4 +1,4 @@
-/* Copyright (c) 2000, 2014, Oracle and/or its affiliates. All rights reserved.
+/* Copyright (c) 2000, 2016, Oracle and/or its affiliates. All rights reserved.
 
    This program is free software; you can redistribute it and/or modify
    it under the terms of the GNU General Public License as published by
@@ -48,8 +48,13 @@ TODO:
 */
 
 #include "mysys_priv.h"
+#include "my_sys.h"
 #include <m_string.h>
 #include <errno.h>
+#include "my_thread_local.h"
+#include "mysql/psi/mysql_file.h"
+
+PSI_file_key key_file_io_cache;
 
 #define lock_append_buffer(info) \
   mysql_mutex_lock(&(info)->append_buffer_lock)
@@ -118,38 +123,41 @@ init_functions(IO_CACHE* info)
 /*
   Initialize an IO_CACHE object
 
-  SYNOPSOS
-    init_io_cache()
-    info		cache handler to initialize
-    file		File that should be associated to to the handler
-			If == -1 then real_open_cached_file()
-			will be called when it's time to open file.
-    cachesize		Size of buffer to allocate for read/write
-			If == 0 then use my_default_record_cache_size
-    type		Type of cache
-    seek_offset		Where cache should start reading/writing
-    use_async_io	Set to 1 of we should use async_io (if avaiable)
-    cache_myflags	Bitmap of differnt flags
-			MY_WME | MY_FAE | MY_NABP | MY_FNABP |
-			MY_DONT_CHECK_FILESIZE
+  SYNOPSIS
+    init_io_cache_ext()
+    info               cache handler to initialize
+    file               File that should be associated to to the handler
+                       If == -1 then real_open_cached_file()
+                       will be called when it's time to open file.
+    cachesize          Size of buffer to allocate for read/write
+                       If == 0 then use my_default_record_cache_size
+    type               Type of cache
+    seek_offset        Where cache should start reading/writing
+    use_async_io       Set to 1 of we should use async_io (if avaiable)
+    cache_myflags      Bitmap of different flags
+                       MY_WME | MY_FAE | MY_NABP | MY_FNABP |
+                       MY_DONT_CHECK_FILESIZE
+    file_key           Instrumented file key for temporary cache file
 
   RETURN
     0  ok
     #  error
 */
 
-int init_io_cache(IO_CACHE *info, File file, size_t cachesize,
-		  enum cache_type type, my_off_t seek_offset,
-		  pbool use_async_io, myf cache_myflags)
+int init_io_cache_ext(IO_CACHE *info, File file, size_t cachesize,
+                      enum cache_type type, my_off_t seek_offset,
+                      pbool use_async_io, myf cache_myflags,
+                      PSI_file_key file_key)
 {
   size_t min_cache;
   my_off_t pos;
   my_off_t end_of_file= ~(my_off_t) 0;
-  DBUG_ENTER("init_io_cache");
+  DBUG_ENTER("init_io_cache_ext");
   DBUG_PRINT("enter",("cache: 0x%lx  type: %d  pos: %ld",
-		      (ulong) info, (int) type, (ulong) seek_offset));
+             (ulong) info, (int) type, (ulong) seek_offset));
 
   info->file= file;
+  info->file_key= file_key;
   info->type= TYPE_NOT_SET;	    /* Don't set it until mutex are created */
   info->pos_in_file= seek_offset;
   info->pre_close = info->pre_read = info->post_read = 0;
@@ -161,7 +169,7 @@ int init_io_cache(IO_CACHE *info, File file, size_t cachesize,
   if (file >= 0)
   {
     pos= mysql_file_tell(file, MYF(0));
-    if ((pos == (my_off_t) -1) && (my_errno == ESPIPE))
+    if ((pos == (my_off_t) -1) && (my_errno() == ESPIPE))
     {
       /*
          This kind of object doesn't support seek() or tell(). Don't set a
@@ -183,10 +191,10 @@ int init_io_cache(IO_CACHE *info, File file, size_t cachesize,
   info->share=0;
 
   if (!cachesize && !(cachesize= my_default_record_cache_size))
-    DBUG_RETURN(1);				/* No cache requested */
+    DBUG_RETURN(1);        /* No cache requested */
   min_cache=use_async_io ? IO_SIZE*4 : IO_SIZE*2;
   if (type == READ_CACHE || type == SEQ_READ_APPEND)
-  {						/* Assume file isn't growing */
+  {                       /* Assume file isn't growing */
     if (!(cache_myflags & MY_DONT_CHECK_FILESIZE))
     {
       /* Calculate end of file to avoid allocating oversized buffers */
@@ -194,12 +202,12 @@ int init_io_cache(IO_CACHE *info, File file, size_t cachesize,
       /* Need to reset seek_not_done now that we just did a seek. */
       info->seek_not_done= end_of_file == seek_offset ? 0 : 1;
       if (end_of_file < seek_offset)
-	end_of_file=seek_offset;
+        end_of_file=seek_offset;
       /* Trim cache size if the file is very small */
       if ((my_off_t) cachesize > end_of_file-seek_offset+IO_SIZE*2-1)
       {
-	cachesize= (size_t) (end_of_file-seek_offset)+IO_SIZE*2-1;
-	use_async_io=0;				/* No need to use async */
+        cachesize= (size_t) (end_of_file-seek_offset)+IO_SIZE*2-1;
+        use_async_io=0;    /* No need to use async */
       }
     }
   }
@@ -218,24 +226,24 @@ int init_io_cache(IO_CACHE *info, File file, size_t cachesize,
       myf flags= (myf) (cache_myflags & ~(MY_WME | MY_WAIT_IF_FULL));
 
       if (cachesize < min_cache)
-	cachesize = min_cache;
+        cachesize = min_cache;
       buffer_block= cachesize;
       if (type == SEQ_READ_APPEND)
-	buffer_block *= 2;
+        buffer_block *= 2;
       if (cachesize == min_cache)
         flags|= (myf) MY_WME;
 
       if ((info->buffer= (uchar*) my_malloc(key_memory_IO_CACHE,
                                             buffer_block, flags)) != 0)
       {
-	info->write_buffer=info->buffer;
-	if (type == SEQ_READ_APPEND)
-	  info->write_buffer = info->buffer + cachesize;
-	info->alloced_buffer=1;
-	break;					/* Enough memory found */
+        info->write_buffer=info->buffer;
+        if (type == SEQ_READ_APPEND)
+          info->write_buffer = info->buffer + cachesize;
+        info->alloced_buffer=1;
+        break;    /* Enough memory found */
       }
       if (cachesize == min_cache)
-	DBUG_RETURN(2);				/* Can't alloc cache */
+        DBUG_RETURN(2);    /* Can't alloc cache */
       /* Try with less memory */
       cachesize= (cachesize*3/4 & ~(min_cache-1));
     }
@@ -272,7 +280,25 @@ int init_io_cache(IO_CACHE *info, File file, size_t cachesize,
   info->type= type;
   init_functions(info);
   DBUG_RETURN(0);
-}						/* init_io_cache */
+}  /* init_io_cache_ext */
+
+/*
+  Initialize an IO_CACHE object
+
+  SYNOPSIS
+    init_io_cache() - Wrapper for init_io_cache_ext()
+
+  NOTE
+    This function should be used if the IO_CACHE tempfile is not instrumented.
+*/
+
+int init_io_cache(IO_CACHE *info, File file, size_t cachesize,
+                  enum cache_type type, my_off_t seek_offset,
+                  pbool use_async_io, myf cache_myflags)
+{
+  return init_io_cache_ext(info, file, cachesize, type, seek_offset,
+                           use_async_io, cache_myflags, key_file_io_cache);
+}
 
 /*
   Use this to reset cache to re-start reading or to change the type
@@ -283,7 +309,7 @@ int init_io_cache(IO_CACHE *info, File file, size_t cachesize,
 
 my_bool reinit_io_cache(IO_CACHE *info, enum cache_type type,
 			my_off_t seek_offset,
-			pbool use_async_io __attribute__((unused)),
+			pbool use_async_io MY_ATTRIBUTE((unused)),
 			pbool clear_cache)
 {
   DBUG_ENTER("reinit_io_cache");
@@ -432,7 +458,7 @@ int _my_b_read(IO_CACHE *info, uchar *Buffer, size_t Count)
         info->file is a pipe or socket or FIFO.  We never should have tried
         to seek on that.  See Bugs#25807 and #22828 for more info.
       */
-      DBUG_ASSERT(my_errno != ESPIPE);
+      DBUG_ASSERT(my_errno() != ESPIPE);
       info->error= -1;
       DBUG_RETURN(1);
     }
@@ -1076,7 +1102,7 @@ static void copy_to_read_buffer(IO_CACHE *write_cache,
   while (write_length)
   {
     size_t copy_length= MY_MIN(write_length, write_cache->buffer_length);
-    int  __attribute__((unused)) rc;
+    int  MY_ATTRIBUTE((unused)) rc;
 
     rc= lock_io_cache(write_cache, write_cache->pos_in_file);
     /* The writing thread does always have the lock when it awakes. */
@@ -1290,7 +1316,8 @@ int _my_b_write(IO_CACHE *info, const uchar *Buffer, size_t Count)
                   });
   if (pos_in_file+info->buffer_length > info->end_of_file)
   {
-    my_errno=errno=EFBIG;
+    errno=EFBIG;
+    set_my_errno(EFBIG);
     return info->error = -1;
   }
 
@@ -1479,7 +1506,7 @@ int my_block_write(IO_CACHE *info, const uchar *Buffer, size_t Count,
   unlock_append_buffer(info);
 
 int my_b_flush_io_cache(IO_CACHE *info,
-                        int need_append_buffer_lock __attribute__((unused)))
+                        int need_append_buffer_lock MY_ATTRIBUTE((unused)))
 {
   size_t length;
   my_off_t pos_in_file;
@@ -1487,6 +1514,10 @@ int my_b_flush_io_cache(IO_CACHE *info,
   DBUG_ENTER("my_b_flush_io_cache");
   DBUG_PRINT("enter", ("cache: 0x%lx", (long) info));
 
+  DBUG_EXECUTE_IF("simulate_error_during_flush_cache_to_file",
+                  {
+                    DBUG_RETURN(TRUE);
+                  });
   if (!append_cache)
     need_append_buffer_lock= 0;
 

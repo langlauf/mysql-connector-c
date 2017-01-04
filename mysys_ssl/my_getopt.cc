@@ -1,4 +1,4 @@
-/* Copyright (c) 2002, 2014, Oracle and/or its affiliates. All rights reserved.
+/* Copyright (c) 2002, 2016, Oracle and/or its affiliates. All rights reserved.
 
    This program is free software; you can redistribute it and/or modify
    it under the terms of the GNU General Public License as published by
@@ -741,10 +741,19 @@ static int setval(const struct my_option *opts, void *value, char *argument,
       )
      )
   {
-    my_getopt_error_reporter(ERROR_LEVEL,
+    if (strncmp(opts->name, "port", 10) == 0)
+    {
+        my_getopt_error_reporter(WARNING_LEVEL,
+                             "%s: Empty value for '%s' specified. Will throw an error in future versions",
+                             my_progname, opts->name);
+    }
+    else
+    {
+        my_getopt_error_reporter(ERROR_LEVEL,
                              "%s: Empty value for '%s' specified",
                              my_progname, opts->name);
-    return EXIT_ARGUMENT_REQUIRED;
+        return EXIT_ARGUMENT_REQUIRED;
+    }
   }
 
   if (value)
@@ -1123,17 +1132,17 @@ static inline my_bool is_negative_num(char* num)
 
 static ulonglong getopt_ull(char *arg, const struct my_option *optp, int *err)
 {
+  char buf[255];
   ulonglong num;
 
-  /*
-    Bug #14683107
-    eval_num_suffix uses strtoll, strtoull also seems to have the same
-    behaviour return 0xffffffffffffffff irrespective of the signedness
-    specification. Hence '-' is checked in the input and num is set to 0 if
-    it is present to force it to the lowest possible unsigned value.
-  */
+  /* If a negative number is specified as a value for the option. */
   if (arg == NULL || is_negative_num(arg) == TRUE)
-    num= 0;
+  {
+    num= (ulonglong) optp->min_value;
+    my_getopt_error_reporter(WARNING_LEVEL,
+                             "option '%s': value %s adjusted to %s",
+                             optp->name, arg, ullstr(num, buf));
+  }
   else
     num= eval_num_suffix_ull(arg, err, (char*) optp->name);
   
@@ -1150,7 +1159,7 @@ ulonglong getopt_ull_limit_value(ulonglong num, const struct my_option *optp,
   const ulonglong max_of_type=
     max_of_int_range(optp->var_type & GET_TYPE_MASK);
 
-  if ((ulonglong) num > (ulonglong) optp->max_value &&
+  if (num > (ulonglong) optp->max_value &&
       optp->max_value) /* if max value is not set -> no upper limit */
   {
     num= (ulonglong) optp->max_value;
@@ -1275,10 +1284,10 @@ static void init_one_value(const struct my_option *option, void *variable,
     *((ulong*) variable)= (ulong) getopt_ull_limit_value((ulong) value, option, NULL);
     break;
   case GET_LL:
-    *((longlong*) variable)= (longlong) getopt_ll_limit_value((longlong) value, option, NULL);
+    *((longlong*) variable)= getopt_ll_limit_value(value, option, NULL);
     break;
   case GET_ULL:
-    *((ulonglong*) variable)= (ulonglong) getopt_ull_limit_value((ulonglong) value, option, NULL);
+    *((ulonglong*) variable)= getopt_ull_limit_value((ulonglong) value, option, NULL);
     break;
   case GET_SET:
   case GET_FLAGSET:
@@ -1330,7 +1339,7 @@ static void init_one_value(const struct my_option *option, void *variable,
 */
 
 static void fini_one_value(const struct my_option *option, void *variable,
-			   longlong value __attribute__ ((unused)))
+			   longlong value MY_ATTRIBUTE ((unused)))
 {
   DBUG_ENTER("fini_one_value");
   switch ((option->var_type & GET_TYPE_MASK)) {

@@ -1,4 +1,4 @@
-/* Copyright (c) 2000, 2013, Oracle and/or its affiliates. All rights reserved.
+/* Copyright (c) 2000, 2015, Oracle and/or its affiliates. All rights reserved.
 
    This program is free software; you can redistribute it and/or modify
    it under the terms of the GNU General Public License as published by
@@ -19,6 +19,7 @@
 #include "my_static.h"
 #include "mysys_err.h"
 #include <m_string.h>
+#include "my_thread_local.h"
 
 /*
   Alloc for things we don't nend to free run-time (that only
@@ -57,7 +58,7 @@ void* my_once_alloc(size_t Size, myf MyFlags)
 
     if ((next = (USED_MEM*) malloc(get_size)) == 0)
     {
-      my_errno=errno;
+      set_my_errno(errno);
       if (MyFlags & (MY_FAE+MY_WME))
 	my_error(EE_OUTOFMEMORY, MYF(ME_FATALERROR), get_size);
       return((uchar*) 0);
