@@ -262,7 +262,7 @@ mysql_debug(const char *debug MY_ATTRIBUTE((unused)))
   else if ((env = getenv("MYSQL_DEBUG")))
   {
     DBUG_PUSH(env);
-#if !defined(_WINVER) && !defined(WINVER)
+#if !defined(USE_MESSAGEBOX) || !defined(_WINVER) && !defined(WINVER)
     puts("\n-------------------------------------------------------");
     puts("MYSQL_DEBUG found. libmysql started with the following:");
     puts(env);
@@ -763,7 +763,7 @@ MYSQL_FIELD *cli_list_fields(MYSQL *mysql)
   MYSQL_FIELD *result;
 
   MYSQL_TRACE_STAGE(mysql, WAIT_FOR_FIELD_DEF);
-  query= cli_read_rows(mysql,(MYSQL_FIELD*) 0, 
+  query= cli_read_rows(mysql,(MYSQL_FIELD*) 0,
                              protocol_41(mysql) ? 8 : 6);
   MYSQL_TRACE_STAGE(mysql, READY_FOR_COMMAND);
 
@@ -1112,10 +1112,10 @@ void my_net_local_init(NET *net)
   can use in a SQL statement in of the either ways:
     INSERT INTO blob_column VALUES (0xAABBCC);  (any MySQL version)
     INSERT INTO blob_column VALUES (X'AABBCC'); (4.1 and higher)
-  
+
   The string in "from" is encoded to a HEX string.
   The result is placed in "to" and a terminating null byte is appended.
-  
+
   The string pointed to by "from" must be "length" bytes long.
   You must allocate the "to" buffer to be at least length*2+1 bytes long.
   Each character needs two bytes, and you need room for the terminating
@@ -1132,7 +1132,7 @@ mysql_hex_string(char *to, const char *from, ulong length)
 {
   char *to0= to;
   const char *end;
-            
+
   for (end= from + length; from < end; from++)
   {
     *to++= _dig_vec_upper[((unsigned char) *from) >> 4];
@@ -1907,7 +1907,7 @@ mysql_stmt_param_metadata(MYSQL_STMT *stmt)
     TODO: Fix this when server sends the information.
     Till then keep a dummy prototype.
   */
-  DBUG_RETURN(0); 
+  DBUG_RETURN(0);
 }
 
 
@@ -2188,9 +2188,9 @@ static my_bool execute(MYSQL_STMT *stmt, char *packet, ulong length)
   stmt->insert_id= mysql->insert_id;
   if (res)
   {
-    /* 
-      Don't set stmt error if stmt->mysql is NULL, as the error in this case 
-      has already been set by mysql_prune_stmt_list(). 
+    /*
+      Don't set stmt error if stmt->mysql is NULL, as the error in this case
+      has already been set by mysql_prune_stmt_list().
     */
     if (stmt->mysql)
       set_stmt_errmsg(stmt, net);
@@ -2233,7 +2233,7 @@ int cli_stmt_execute(MYSQL_STMT *stmt)
     else
     {
       set_stmt_errmsg(stmt, net);
-      DBUG_RETURN(1);             
+      DBUG_RETURN(1);
     }
 
     /* Reserve place for null-marker bytes */
@@ -2414,9 +2414,9 @@ stmt_read_row_from_cursor(MYSQL_STMT *stmt, unsigned char **row)
                                             buff, sizeof(buff), (uchar*) 0, 0,
                                             1, stmt))
     {
-      /* 
-        Don't set stmt error if stmt->mysql is NULL, as the error in this case 
-        has already been set by mysql_prune_stmt_list(). 
+      /*
+        Don't set stmt error if stmt->mysql is NULL, as the error in this case
+        has already been set by mysql_prune_stmt_list().
       */
       if (stmt->mysql)
         set_stmt_errmsg(stmt, net);
@@ -3110,9 +3110,9 @@ mysql_stmt_send_long_data(MYSQL_STMT *stmt, uint param_number,
                                             buff, sizeof(buff), (uchar*) data,
                                             length, 1, stmt))
     {
-      /* 
-        Don't set stmt error if stmt->mysql is NULL, as the error in this case 
-        has already been set by mysql_prune_stmt_list(). 
+      /*
+        Don't set stmt error if stmt->mysql is NULL, as the error in this case
+        has already been set by mysql_prune_stmt_list().
       */
       if (stmt->mysql)
         set_stmt_errmsg(stmt, &mysql->net);
@@ -4337,7 +4337,7 @@ int STDCALL mysql_stmt_fetch(MYSQL_STMT *stmt)
       ((rc= stmt_fetch_row(stmt, row)) && rc != MYSQL_DATA_TRUNCATED))
   {
     stmt->state= MYSQL_STMT_PREPARE_DONE;       /* XXX: this is buggy */
-    stmt->read_row_func= (rc == MYSQL_NO_DATA) ? 
+    stmt->read_row_func= (rc == MYSQL_NO_DATA) ?
       stmt_read_row_no_data : stmt_read_row_no_result_set;
   }
   else
@@ -4586,9 +4586,9 @@ int STDCALL mysql_stmt_store_result(MYSQL_STMT *stmt)
     if (cli_advanced_command(mysql, COM_STMT_FETCH, buff, sizeof(buff),
                              (uchar*) 0, 0, 1, stmt))
     {
-      /* 
-        Don't set stmt error if stmt->mysql is NULL, as the error in this case 
-        has already been set by mysql_prune_stmt_list(). 
+      /*
+        Don't set stmt error if stmt->mysql is NULL, as the error in this case
+        has already been set by mysql_prune_stmt_list().
       */
       if (stmt->mysql)
         set_stmt_errmsg(stmt, net);

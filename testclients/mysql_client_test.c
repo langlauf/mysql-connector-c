@@ -6328,10 +6328,17 @@ static void test_temporal_param()
   if (!opt_silent)
     printf("\n%lld %f '%s'\n", bigint, real, dec);
 
-  /* Check values.  */
+  /*
+    Check values.
+
+    Note: there is change in server behavior between 5.6.35 and 5.6.36.
+    In 5.6.35 the trailing zeros were not present in the string representation
+    of fractional seconds, in 5.6.36 they are there. Similar for 5.7 server
+    (did not check exact versions).
+  */
   DIE_UNLESS(bigint ==  20011020101100LL);
   DIE_UNLESS(real == 20011020101059.5);
-  DIE_UNLESS(!strcmp(dec, "20011020101059.5"));
+  DIE_UNLESS(!strcmp(dec, "20011020101059.500000"));
 
   mysql_stmt_close(stmt);
 
@@ -6375,7 +6382,7 @@ static void test_temporal_param()
   /* Check returned values */
   DIE_UNLESS(bigint ==  101100);
   DIE_UNLESS(real ==  101059.5);
-  DIE_UNLESS(!strcmp(dec, "101059.5"));
+  DIE_UNLESS(!strcmp(dec, "101059.500000"));
 
   mysql_stmt_close(stmt);
 }

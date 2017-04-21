@@ -1,5 +1,5 @@
 # Copyright (c) 2009, 2014, Oracle and/or its affiliates. All rights reserved.
-# 
+#
 # This program is free software; you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
 # the Free Software Foundation; version 2 of the License.
@@ -11,7 +11,7 @@
 #
 # You should have received a copy of the GNU General Public License
 # along with this program; if not, write to the Free Software
-# Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA 
+# Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
 
 GET_FILENAME_COMPONENT(MYSQL_CMAKE_SCRIPT_DIR ${CMAKE_CURRENT_LIST_FILE} PATH)
 INCLUDE(${MYSQL_CMAKE_SCRIPT_DIR}/cmake_parse_arguments.cmake)
@@ -44,31 +44,31 @@ MACRO (INSTALL_DEBUG_SYMBOLS targets)
 	  SET(comp Server)
     ELSE()
       SET(comp Debuginfo)
-    ENDIF()	  
+    ENDIF()
     # No .pdb file for static libraries.
     IF(NOT type MATCHES "STATIC_LIBRARY")
       INSTALL(FILES ${pdb_location}
-        DESTINATION ${INSTALL_LOCATION} COMPONENT ${comp})
+        DESTINATION ${INSTALL_LOCATION} COMPONENT ${comp} OPTIONAL)
     ENDIF()
   ENDFOREACH()
   ENDIF()
 ENDMACRO()
 
 # Installs manpage for given file (either script or executable)
-# 
+#
 FUNCTION(INSTALL_MANPAGE file)
   IF(NOT UNIX)
     RETURN()
   ENDIF()
   GET_FILENAME_COMPONENT(file_name "${file}" NAME)
-  SET(GLOB_EXPR 
+  SET(GLOB_EXPR
     ${CMAKE_SOURCE_DIR}/man/*${file}man.1*
     ${CMAKE_SOURCE_DIR}/man/*${file}man.8*
     ${CMAKE_BINARY_DIR}/man/*${file}man.1*
     ${CMAKE_BINARY_DIR}/man/*${file}man.8*
    )
   IF(MYSQL_DOC_DIR)
-    SET(GLOB_EXPR 
+    SET(GLOB_EXPR
       ${MYSQL_DOC_DIR}/man/*${file}man.1*
       ${MYSQL_DOC_DIR}/man/*${file}man.8*
       ${MYSQL_DOC_DIR}/man/*${file}.1*
@@ -76,7 +76,7 @@ FUNCTION(INSTALL_MANPAGE file)
       ${GLOB_EXPR}
       )
    ENDIF()
-    
+
   FILE(GLOB_RECURSE MANPAGES ${GLOB_EXPR})
   IF(MANPAGES)
     LIST(GET MANPAGES 0 MANPAGE)
@@ -98,7 +98,7 @@ FUNCTION(INSTALL_SCRIPT)
   ""
   ${ARGN}
   )
-  
+
   SET(script ${ARG_DEFAULT_ARGS})
   IF(NOT ARG_DESTINATION)
     SET(ARG_DESTINATION ${INSTALL_BINDIR})
@@ -109,17 +109,17 @@ FUNCTION(INSTALL_SCRIPT)
     SET(COMP)
   ENDIF()
 
-  INSTALL(FILES 
+  INSTALL(FILES
     ${script}
     DESTINATION ${ARG_DESTINATION}
-    PERMISSIONS OWNER_READ OWNER_WRITE 
+    PERMISSIONS OWNER_READ OWNER_WRITE
     OWNER_EXECUTE GROUP_READ GROUP_EXECUTE
     WORLD_READ WORLD_EXECUTE  ${COMP}
   )
   INSTALL_MANPAGE(${script})
 ENDFUNCTION()
 
-# Install symbolic link to CMake target. 
+# Install symbolic link to CMake target.
 # We do 'cd path; ln -s target_name link_name'
 # We also add an INSTALL target for "${path}/${link_name}"
 MACRO(INSTALL_SYMLINK target target_name link_name destination component)
@@ -131,20 +131,20 @@ IF(UNIX)
   ADD_CUSTOM_COMMAND(
     OUTPUT ${output}
     COMMAND ${CMAKE_COMMAND} ARGS -E remove -f ${output}
-    COMMAND ${CMAKE_COMMAND} ARGS -E create_symlink 
-      ${target_name} 
+    COMMAND ${CMAKE_COMMAND} ARGS -E create_symlink
+      ${target_name}
       ${link_name}
     WORKING_DIRECTORY ${path}
     DEPENDS ${target}
     )
-  
+
   ADD_CUSTOM_TARGET(symlink_${link_name}
     ALL
     DEPENDS ${output})
   SET_TARGET_PROPERTIES(symlink_${link_name} PROPERTIES CLEAN_DIRECT_OUTPUT 1)
   IF(CMAKE_GENERATOR MATCHES "Xcode")
     # For Xcode, replace project config with install config
-    STRING(REPLACE "${CMAKE_CFG_INTDIR}" 
+    STRING(REPLACE "${CMAKE_CFG_INTDIR}"
       "\${CMAKE_INSTALL_CONFIG_NAME}" output ${output})
   ENDIF()
   INSTALL(FILES ${output} DESTINATION ${destination} COMPONENT ${component})
@@ -155,22 +155,22 @@ IF(WIN32)
   OPTION(SIGNCODE "Sign executables and dlls with digital certificate" OFF)
   MARK_AS_ADVANCED(SIGNCODE)
   IF(SIGNCODE)
-   SET(SIGNTOOL_PARAMETERS 
+   SET(SIGNTOOL_PARAMETERS
      /a /t http://timestamp.verisign.com/scripts/timstamp.dll
      CACHE STRING "parameters for signtool (list)")
     FIND_PROGRAM(SIGNTOOL_EXECUTABLE signtool)
     IF(NOT SIGNTOOL_EXECUTABLE)
-      MESSAGE(FATAL_ERROR 
+      MESSAGE(FATAL_ERROR
       "signtool is not found. Signing executables not possible")
     ENDIF()
     IF(NOT DEFINED SIGNCODE_ENABLED)
       FILE(WRITE ${CMAKE_CURRENT_BINARY_DIR}/testsign.c "int main(){return 0;}")
       MAKE_DIRECTORY(${CMAKE_CURRENT_BINARY_DIR}/testsign)
-     TRY_COMPILE(RESULT ${CMAKE_CURRENT_BINARY_DIR}/testsign ${CMAKE_CURRENT_BINARY_DIR}/testsign.c  
+     TRY_COMPILE(RESULT ${CMAKE_CURRENT_BINARY_DIR}/testsign ${CMAKE_CURRENT_BINARY_DIR}/testsign.c
       COPY_FILE ${CMAKE_CURRENT_BINARY_DIR}/testsign.exe
      )
-      
-     EXECUTE_PROCESS(COMMAND 
+
+     EXECUTE_PROCESS(COMMAND
       ${SIGNTOOL_EXECUTABLE} sign ${SIGNTOOL_PARAMETERS} ${CMAKE_CURRENT_BINARY_DIR}/testsign.exe
       RESULT_VARIABLE ERR ERROR_QUIET OUTPUT_QUIET
       )
@@ -190,11 +190,11 @@ MACRO(SIGN_TARGET target)
  IF(target_type AND NOT target_type MATCHES "STATIC")
    GET_TARGET_PROPERTY(target_location ${target}  LOCATION)
    IF(CMAKE_GENERATOR MATCHES "Visual Studio")
-   STRING(REPLACE "${CMAKE_CFG_INTDIR}" "\${CMAKE_INSTALL_CONFIG_NAME}" 
+   STRING(REPLACE "${CMAKE_CFG_INTDIR}" "\${CMAKE_INSTALL_CONFIG_NAME}"
      target_location ${target_location})
    ENDIF()
    INSTALL(CODE
-   "EXECUTE_PROCESS(COMMAND 
+   "EXECUTE_PROCESS(COMMAND
      ${SIGNTOOL_EXECUTABLE} sign ${SIGNTOOL_PARAMETERS} ${target_location}
      RESULT_VARIABLE ERR)
     IF(NOT \${ERR} EQUAL 0)
@@ -223,7 +223,7 @@ FUNCTION(MYSQL_INSTALL_TARGETS)
      MESSAGE(FATAL_ERROR "Need DESTINATION parameter for MYSQL_INSTALL_TARGETS")
   ENDIF()
 
- 
+
   FOREACH(target ${TARGETS})
     # If signing is required, sign executables before installing
      IF(SIGNCODE AND SIGNCODE_ENABLED)
@@ -239,14 +239,15 @@ FUNCTION(MYSQL_INSTALL_TARGETS)
     SET(COMP COMPONENT ${ARG_COMPONENT})
   ENDIF()
   INSTALL(TARGETS ${TARGETS} DESTINATION ${ARG_DESTINATION} ${COMP})
-  # Connector/C packages should not install any debug files
-  #SET(INSTALL_LOCATION ${ARG_DESTINATION} )
-  #INSTALL_DEBUG_SYMBOLS("${TARGETS}")
+  IF(CMAKE_BUILD_TYPE AND NOT CMAKE_BUILD_TYPE MATCHES "Release")
+    SET(INSTALL_LOCATION ${ARG_DESTINATION} )
+    INSTALL_DEBUG_SYMBOLS("${TARGETS}")
+  ENDIF()
   SET(INSTALL_LOCATION)
 ENDFUNCTION()
 
-# Optionally install mysqld/client/embedded from debug build run. outside of the current build dir 
-# (unless multi-config generator is used like Visual Studio or Xcode). 
+# Optionally install mysqld/client/embedded from debug build run. outside of the current build dir
+# (unless multi-config generator is used like Visual Studio or Xcode).
 # For Makefile generators we default Debug build directory to ${buildroot}/../debug.
 GET_FILENAME_COMPONENT(BINARY_PARENTDIR ${CMAKE_BINARY_DIR} PATH)
 SET(DEBUGBUILDDIR "${BINARY_PARENTDIR}/debug" CACHE INTERNAL "Directory of debug build")
@@ -254,7 +255,7 @@ SET(DEBUGBUILDDIR "${BINARY_PARENTDIR}/debug" CACHE INTERNAL "Directory of debug
 
 FUNCTION(INSTALL_DEBUG_TARGET target)
  MYSQL_PARSE_ARGUMENTS(ARG
-  "DESTINATION;RENAME;PDB_DESTINATION;COMPONENT;SUFFIX"
+  "DESTINATION;RENAME;PDB_DESTINATION;IMPORTLIB_DESTINATION;COMPONENT;SUFFIX"
   ""
   ${ARGN}
   )
@@ -273,7 +274,7 @@ FUNCTION(INSTALL_DEBUG_TARGET target)
   ELSE()
    STRING(REPLACE "${CMAKE_CFG_INTDIR}" "Debug"  debug_target_location "${target_location}" )
   ENDIF()
-  IF(ARG_SUFFIX) 
+  IF(ARG_SUFFIX)
     GET_FILENAME_COMPONENT(ext ${debug_target_location} EXT)
     GET_FILENAME_COMPONENT(fn  ${debug_target_location} NAME_WE)
     STRING(REPLACE "${fn}${ext}" "${fn}${ARG_SUFFIX}${ext}"
@@ -282,7 +283,7 @@ FUNCTION(INSTALL_DEBUG_TARGET target)
   IF(NOT ARG_COMPONENT)
     SET(ARG_COMPONENT DebugBinaries)
   ENDIF()
-  
+
   # Define permissions
   # For executable files
   SET(PERMISSIONS_EXECUTABLE
@@ -291,12 +292,12 @@ FUNCTION(INSTALL_DEBUG_TARGET target)
       GROUP_READ GROUP_EXECUTE
       WORLD_READ WORLD_EXECUTE)
 
-  # Permissions for shared library (honors CMAKE_INSTALL_NO_EXE which is 
+  # Permissions for shared library (honors CMAKE_INSTALL_NO_EXE which is
   # typically set on Debian)
   IF(CMAKE_INSTALL_SO_NO_EXE)
     SET(PERMISSIONS_SHARED_LIBRARY
       PERMISSIONS
-      OWNER_READ OWNER_WRITE 
+      OWNER_READ OWNER_WRITE
       GROUP_READ
       WORLD_READ)
   ELSE()
@@ -309,10 +310,11 @@ FUNCTION(INSTALL_DEBUG_TARGET target)
   #  Define permissions for static library
   SET(PERMISSIONS_STATIC_LIBRARY
       PERMISSIONS
-      OWNER_READ OWNER_WRITE 
+      OWNER_READ OWNER_WRITE
       GROUP_READ
       WORLD_READ)
 
+  MESSAGE(STATUS "Installing \"${debug_target_location}\" into \"${ARG_DESTINATION}\" component \"${ARG_COMPONENT}\"")
   INSTALL(FILES ${debug_target_location}
     DESTINATION ${ARG_DESTINATION}
     ${RENAME_PARAM}
@@ -323,22 +325,45 @@ FUNCTION(INSTALL_DEBUG_TARGET target)
 
   IF(MSVC)
     GET_FILENAME_COMPONENT(ext ${debug_target_location} EXT)
-    STRING(REPLACE "${ext}" ".pdb"  debug_pdb_target_location "${debug_target_location}" )
-    IF (RENAME_PARAM)
-      IF(NOT ARG_PDB_DESTINATION)
-        STRING(REPLACE "${ext}" ".pdb"  "${ARG_RENAME}" pdb_rename)
-        SET(PDB_RENAME_PARAM RENAME "${pdb_rename}")
+
+    # Install the PDB file
+    SET(_types "PDB")
+    IF(target_type MATCHES "SHARED_LIBRARY")
+      # Also install the import library if a DLL
+      LIST(APPEND _types "IMPORTLIB")
+    ENDIF()
+
+    FOREACH(_type ${_types})
+      IF(_type MATCHES "IMPORTLIB")
+        SET(_ext ".lib")
+      ELSE()
+        SET(_ext ".pdb")
       ENDIF()
+      # File to install has the same path but a different file extension
+      STRING(REPLACE "${ext}" "${_ext}" _target_location "${debug_target_location}" )
+      SET(_rename_param)
+      IF (RENAME_PARAM)
+        IF(NOT ARG_${_type}_DESTINATION)
+          STRING(REPLACE "${ext}" "${_ext}"  "${ARG_RENAME}" _rename)
+          SET(_rename_param RENAME "${_rename}")
+        ENDIF()
+      ENDIF()
+
+      IF(ARG_${_type}_DESTINATION)
+        SET(_destination "${ARG_${_type}_DESTINATION}")
+      ELSE()
+        SET(_destination "${ARG_DESTINATION}")
+      ENDIF()
+
+      MESSAGE(STATUS "Installing \"${_target_location}\" into \"${_destination}\" component \"${ARG_COMPONENT}\"")
+      INSTALL(FILES ${_target_location}
+        DESTINATION ${_destination}
+        ${_rename_param}
+        CONFIGURATIONS Release RelWithDebInfo
+        COMPONENT ${ARG_COMPONENT}
+        OPTIONAL)
     ENDIF()
-    IF(NOT ARG_PDB_DESTINATION)
-      SET(ARG_PDB_DESTINATION "${ARG_DESTINATION}")
-    ENDIF()
-    INSTALL(FILES ${debug_pdb_target_location}
-      DESTINATION ${ARG_PDB_DESTINATION}
-      ${PDB_RENAME_PARAM}
-      CONFIGURATIONS Release RelWithDebInfo
-      COMPONENT ${ARG_COMPONENT}
-      OPTIONAL)
-  ENDIF()
+  ENDFOREACH()
+
 ENDFUNCTION()
 

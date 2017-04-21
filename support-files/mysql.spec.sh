@@ -482,7 +482,6 @@ rm -f $RBR/%{_bindir}/perror
 %files -n mysql-connector-c-devel%{product_suffix} -f optional-files-devel
 %defattr(-, root, root, 0755)
 %doc %{src_dir}/README
-%doc %{src_dir}/Docs/ChangeLog
 %doc %{license_files_server}
 %doc %{src_dir}/Docs/INFO_SRC*
 %doc release/Docs/INFO_BIN*
@@ -498,7 +497,6 @@ rm -f $RBR/%{_bindir}/perror
 %files -n mysql-connector-c-shared%{product_suffix}
 %defattr(-, root, root, 0755)
 %doc %{src_dir}/README
-%doc %{src_dir}/Docs/ChangeLog
 %doc %{license_files_server}
 %doc %{src_dir}/Docs/INFO_SRC*
 %doc release/Docs/INFO_BIN*
